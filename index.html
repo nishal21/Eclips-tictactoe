@@ -352,9 +352,9 @@
             text-align: center; pointer-events: none;
             opacity: 0;
             transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-            z-index: 50;
+            z-index: 1000;
             
-            background: rgba(20, 20, 20, 0.9); /* Increased opacity for readability */
+            background: rgba(20, 20, 20, 0.95);
             backdrop-filter: blur(25px);
             -webkit-backdrop-filter: blur(25px);
             padding: 40px 80px;
@@ -1383,6 +1383,45 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
         // Initialize bgm object now that elements exist
         bgm.init();
 
+        // --- PAUSE AUDIO WHEN APP IS IN BACKGROUND ---
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // App went to background - pause music
+                if (bgm.audioEl && !bgm.audioEl.paused) {
+                    bgm.wasPlaying = true;
+                    bgm.audioEl.pause();
+                }
+            } else {
+                // App came back to foreground - resume if was playing
+                if (bgm.audioEl && bgm.wasPlaying && !bgm.isMuted) {
+                    bgm.audioEl.play().catch(e => {});
+                    bgm.wasPlaying = false;
+                }
+            }
+        });
+
+        // Also handle page hide (for when app is closed/minimized on mobile)
+        window.addEventListener('pagehide', function() {
+            if (bgm.audioEl) {
+                bgm.audioEl.pause();
+            }
+        });
+
+        // Handle blur (when switching apps)
+        window.addEventListener('blur', function() {
+            if (bgm.audioEl && !bgm.audioEl.paused) {
+                bgm.wasPlaying = true;
+                bgm.audioEl.pause();
+            }
+        });
+
+        window.addEventListener('focus', function() {
+            if (bgm.audioEl && bgm.wasPlaying && !bgm.isMuted) {
+                bgm.audioEl.play().catch(e => {});
+                bgm.wasPlaying = false;
+            }
+        });
+
         // --- AUDIO ENGINE (Acoustic SFX) ---
         const AudioSys = {
             ctx: null,
@@ -1418,6 +1457,7 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
                     setTimeout(()=>AudioSys.play(100, 0.2, 'square', 0.05), 50);
                 },
                 win: () => [523.25, 659.25, 783.99, 1046.50].forEach((f,i)=>setTimeout(()=>AudioSys.play(f, 2.0, 'sine', 0.1), i*200)),
+                lose: () => [400, 350, 300, 200].forEach((f,i)=>setTimeout(()=>AudioSys.play(f, 0.3, 'sawtooth', 0.08), i*150)),
                 msg: () => AudioSys.play(800, 0.5, 'sine', 0.1)
             }
         };
@@ -1900,6 +1940,13 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
                 if (result === 'loss') {
                     if (!this.advancedStats.lossPatterns) {
                         this.advancedStats.lossPatterns = { byMode: {}, byDifficulty: {} };
+                    }
+                    // Ensure sub-objects exist
+                    if (!this.advancedStats.lossPatterns.byMode) {
+                        this.advancedStats.lossPatterns.byMode = {};
+                    }
+                    if (!this.advancedStats.lossPatterns.byDifficulty) {
+                        this.advancedStats.lossPatterns.byDifficulty = {};
                     }
                     if (!this.advancedStats.lossPatterns.byMode[mode]) {
                         this.advancedStats.lossPatterns.byMode[mode] = 0;
@@ -3059,6 +3106,7 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
             }
 
             aiMove() {
+                console.log('aiMove called, active:', this.active, 'mode:', this.mode);
                 if (!this.active) return; // Guard: Don't move if game ended
                 
                 const empty = this.board.map((v,i) => v === null ? i : null).filter(v => v !== null);
@@ -3164,14 +3212,18 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
             }
 
             checkWin() {
+                console.log('checkWin called, active:', this.active, 'board:', this.board.join(','));
                 if (!this.active) return false;
 
                 const result = this.getWinner();
+                console.log('checkWin result:', result);
                 if(result) {
+                    console.log('Winner found:', result.winner, 'showing win line and calling end');
                     this.showWinLine(result.combo);
                     this.end(result.winner);
                     return true;
                 } else if(!this.board.includes(null)) {
+                    console.log('Draw detected');
                     this.end('draw');
                     return true;
                 }
@@ -3189,6 +3241,7 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
             }
 
             end(w) {
+                console.log('end() called with winner:', w, 'mode:', this.mode);
                 this.active = false;
                 this.stopTimer();
                 let t, s;
@@ -3253,6 +3306,8 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
                         this.spawnConfetti();
                         this.haptic('success');
                     } else {
+                        // Play lose sound for defeats
+                        AudioSys.sfx.lose();
                         this.haptic('error');
                     }
                 }
@@ -3263,6 +3318,7 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
                 }
 
                 this.showNotif(t, s);
+                console.log('Notification shown:', t, s); // Debug log
 
                 // Check for series win
                 const seriesWinner = this.checkSeriesWin();
