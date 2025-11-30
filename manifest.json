@@ -1,0 +1,16 @@
+{
+  "name": "Eclipse: Architect Edition",
+  "short_name": "Eclipse",
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "background_color": "#050510",
+  "theme_color": "#00f3ff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

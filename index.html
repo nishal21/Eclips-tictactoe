@@ -1,0 +1,3375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ECLIPSE | Architect Edition</title>
+    
+    <!-- Noto Color Emoji for consistent cross-platform emojis -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap">
+    
+    <!-- FAVICON -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'%3E%3C!-- Blueprint Grid --%3E%3Cpath d='M50 0 L50 100 M0 50 L100 50' stroke='%23444' stroke-width='1' stroke-dasharray='4 4'/%3E%3C!-- The Eclipse --%3E%3Ccircle cx='50' cy='50' r='40' stroke='%2300f3ff' stroke-width='3'/%3E%3Cpath d='M50 10 A40 40 0 0 0 50 90' fill='%23ffffff'/%3E%3C!-- Architect Cut --%3E%3Cline x1='15' y1='85' x2='85' y2='15' stroke='%2300f3ff' stroke-width='2'/%3E%3C/svg%3E">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+
+        :root {
+            --bg: #eef2f5;
+            --surface: #ffffff;
+            --text-main: #1a1a1a;
+            --text-sub: #666666;
+            --glass: rgba(255, 255, 255, 0.85);
+            --shadow: 0 20px 50px rgba(0,0,0,0.1);
+            --primary-color: #00f3ff;
+            --success-color: #4CAF50;
+            --danger-color: #f44336;
+            --warning-color: #ffc107;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Better emoji rendering */
+        .emoji, .ach-icon, .toast-icon, .circle-btn {
+            font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+        }
+
+        body.dark-mode {
+            --bg: #0a0a0a;
+            --surface: #1a1a1a;
+            --text-main: #ffffff;
+            --text-sub: #888888;
+            --glass: rgba(20, 20, 20, 0.85);
+            --shadow: 0 20px 50px rgba(0,0,0,0.6);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            transition: background-color 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+            transition: filter 1s ease;
+        }
+        
+        body.menu-active #canvas-container {
+            filter: blur(8px) brightness(0.7);
+            transform: scale(1.02);
+        }
+
+        /* --- UI LAYER --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 30px; box-sizing: border-box;
+        }
+
+        /* HEADER */
+        header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            opacity: 0; transform: translateY(-20px); transition: 1s ease 2s;
+        }
+        body.intro-done header { opacity: 1; transform: translateY(0); }
+
+        .brand { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 15px; }
+        .brand-logo-small { width: 40px; height: 40px; stroke: var(--text-main); fill: var(--text-main); }
+        .brand-text { display: flex; flex-direction: column; }
+        .brand h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem; margin: 0; letter-spacing: -1px;
+            font-style: italic; line-height: 1;
+        }
+        .brand span {
+            font-size: 0.6rem; text-transform: uppercase; letter-spacing: 4px;
+            color: var(--text-sub); display: block; margin-top: 2px; font-weight: 500;
+        }
+
+        /* COMPACT SCOREBOARD (Top Right) */
+        #scoreboard {
+            position: absolute; top: 30px; right: 30px;
+            display: flex; flex-direction: column; gap: 5px;
+            opacity: 0; transition: opacity 0.5s ease;
+            pointer-events: none;
+            background: var(--glass);
+            padding: 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(128,128,128,0.1);
+            box-shadow: var(--shadow);
+            z-index: 60;
+        }
+        #scoreboard.visible { opacity: 1; }
+        
+        .score-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 20px; font-family: 'Inter'; font-size: 0.85rem; font-weight: 600;
+            color: var(--text-sub); min-width: 120px;
+        }
+        .score-row.highlight { color: var(--text-main); }
+        
+        .score-val {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem; font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* STREAK & TIMER DISPLAY */
+        #streak-display {
+            font-size: 0.7rem; color: var(--primary-color); text-align: center;
+            margin-top: 5px; font-weight: 600;
+        }
+        #timer-display {
+            font-size: 0.9rem; text-align: center; margin-top: 8px;
+            padding: 5px 10px; background: rgba(128,128,128,0.1); border-radius: 6px;
+            font-family: 'Inter'; font-weight: 600;
+        }
+        #timer-display.warning { color: #ff6b6b; animation: pulse 0.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* INTRO OVERLAY */
+        #intro-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 1.5s cubic-bezier(0.6, 0, 0.4, 1);
+            pointer-events: none;
+        }
+        
+        .intro-logo-svg {
+            width: 150px; height: 150px; margin-bottom: 40px;
+            opacity: 0; transform: scale(0.8);
+            transition: all 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .intro-logo-svg circle { stroke: white; }
+        .intro-logo-svg path { fill: white; }
+        .intro-logo-svg line { stroke: var(--primary-color); }
+        #intro-screen.playing .intro-logo-svg { opacity: 1; transform: scale(1); }
+        
+        .intro-text {
+            color: white; font-family: 'Playfair Display'; font-style: italic; font-size: 4rem;
+            opacity: 0; transform: translateY(20px);
+            transition: opacity 1s 0.5s, transform 1s 0.5s;
+        }
+        .intro-sub {
+            color: #666; font-family: 'Inter'; letter-spacing: 5px; font-size: 0.8rem; margin-top: 10px;
+            text-transform: uppercase; opacity: 0; transition: opacity 1s 0.8s;
+        }
+        #intro-screen.playing .intro-text, #intro-screen.playing .intro-sub { opacity: 1; transform: translateY(0); }
+        #intro-screen.finished { opacity: 0; }
+
+        /* CENTER MENU */
+        .center-panel {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%; max-width: 420px;
+            pointer-events: auto;
+            display: flex; flex-direction: column; gap: 15px;
+            transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 20;
+        }
+        .center-panel.hidden { opacity: 0; transform: translate(-50%, -40%); pointer-events: none; }
+
+        .menu-title {
+            text-align: center; margin-bottom: 20px;
+            font-family: 'Playfair Display'; font-size: 2rem; color: var(--text-main);
+        }
+
+        .card-btn {
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            padding: 25px 30px;
+            border-radius: 12px;
+            border: 1px solid rgba(128,128,128,0.1);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+        .card-btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            background: var(--surface);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+            border-color: var(--text-main);
+        }
+        .card-content h3 { margin: 0 0 4px 0; font-size: 1.1rem; font-weight: 700; }
+        .card-content p { margin: 0; font-size: 0.85rem; color: var(--text-sub); }
+        .arrow { font-size: 1.2rem; opacity: 0.5; transition: 0.3s; }
+        .card-btn:hover .arrow { opacity: 1; transform: translateX(5px); }
+
+        /* THEME TOGGLE (BOTTOM LEFT) */
+        .theme-toggles {
+            position: absolute; bottom: 30px; left: 30px;
+            pointer-events: auto; background: var(--surface);
+            padding: 5px; border-radius: 30px; display: flex; gap: 5px;
+            box-shadow: var(--shadow); opacity: 0; 
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            z-index: 50; transform: translateY(0);
+        }
+        body:not(.intro-done) .theme-toggles { transition: 1s ease 2s; }
+        body.intro-done .theme-toggles { opacity: 1; }
+        .theme-toggles.hidden { opacity: 0 !important; pointer-events: none !important; transform: translateY(20px); }
+
+        .t-btn {
+            width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer;
+            transition: 0.3s;
+        }
+        .t-light { background: #eef2f5; border: 1px solid #ddd; }
+        .t-dark { background: #1a1a1a; border: 1px solid #333; }
+        .t-btn.active { transform: scale(0.8); border: 2px solid var(--text-main); }
+
+        /* ABOUT BUTTON (FLOATING ICON) */
+        #about-fab {
+            position: absolute; bottom: 30px; right: 30px;
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            background: var(--glass);
+            border: 1px solid rgba(128,128,128,0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Playfair Display', serif; font-style: italic; font-weight: 700; font-size: 1.5rem;
+            color: var(--text-main);
+            cursor: pointer; pointer-events: auto;
+            box-shadow: var(--shadow);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            opacity: 0; transform: translateY(20px);
+            z-index: 50;
+        }
+        body.intro-done #about-fab { opacity: 1; transform: translateY(0); }
+        #about-fab:hover { transform: scale(1.1); background: var(--surface); }
+        #about-fab.hidden { opacity: 0 !important; pointer-events: none !important; transform: translateY(20px) !important; display: none !important; }
+
+        /* ABOUT PANEL */
+        .about-content {
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid rgba(128,128,128,0.1);
+            max-height: 70vh;
+            overflow-y: auto;
+            text-align: left;
+        }
+        .about-header {
+            text-align: center; margin-bottom: 20px; border-bottom: 1px solid rgba(128,128,128,0.1); padding-bottom: 15px;
+        }
+        .about-header svg { width: 60px; height: 60px; margin-bottom: 10px; }
+        .about-header h2 { font-family: 'Playfair Display'; margin: 0; font-size: 1.8rem; }
+        .about-header p { margin: 5px 0 0; color: var(--text-sub); font-size: 0.9rem; }
+        
+        .setting-group {
+            margin-bottom: 20px; padding: 15px; background: rgba(128,128,128,0.05); border-radius: 8px;
+        }
+        .setting-group h4 { margin: 0 0 10px 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-main); }
+        .setting-btn {
+            width: 100%; padding: 10px; background: var(--text-main); color: var(--bg);
+            border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-family: 'Inter';
+            transition: 0.2s;
+        }
+        .setting-btn:hover { opacity: 0.8; }
+        .setting-btn.muted { background: var(--text-sub); opacity: 0.7; }
+
+        .dev-profile {
+            display: flex; align-items: center; gap: 15px; margin-bottom: 20px;
+            background: rgba(128,128,128,0.05); padding: 15px; border-radius: 8px;
+        }
+        .dev-avatar {
+            width: 50px; height: 50px; background: linear-gradient(135deg, #2d3436, #000); 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; color: #fff; font-family: 'Inter'; border: 2px solid var(--text-main);
+        }
+        .dev-info h4 { margin: 0; font-size: 1.1rem; }
+        .dev-info p { margin: 2px 0; font-size: 0.8rem; color: var(--text-sub); }
+        
+        .social-links { display: flex; gap: 15px; margin-top: 5px; }
+        .social-link {
+            text-decoration: none; color: var(--text-main); font-size: 0.8rem; font-weight: 600;
+            border-bottom: 1px solid transparent; transition: 0.2s;
+        }
+        .social-link:hover { border-bottom-color: var(--text-main); }
+
+        .legal-text h4 { margin: 20px 0 8px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+        .legal-text p { font-size: 0.85rem; color: var(--text-sub); line-height: 1.6; margin: 0; }
+        
+        .close-btn {
+            margin-top: 25px; width: 100%; padding: 12px; background: var(--text-main); color: var(--bg);
+            border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s;
+            font-family: 'Inter';
+        }
+        .close-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* IN-GAME CONTROLS */
+        .game-ui {
+            position: absolute; bottom: 40px; width: 100%; left: 0;
+            display: flex; justify-content: center; align-items: flex-end; gap: 30px;
+            pointer-events: none; opacity: 0; transition: opacity 0.5s;
+        }
+        .game-ui.visible { opacity: 1; }
+
+        .turn-display {
+            background: var(--surface);
+            padding: 15px 40px; border-radius: 50px;
+            box-shadow: var(--shadow);
+            font-family: 'Playfair Display'; font-size: 1.3rem;
+            color: var(--text-main);
+            min-width: 180px; text-align: center;
+            pointer-events: auto;
+        }
+
+        .actions { pointer-events: auto; display: flex; gap: 15px; }
+        .circle-btn {
+            width: 50px; height: 50px; border-radius: 50%;
+            background: var(--glass); border: 1px solid rgba(128,128,128,0.2);
+            font-size: 1.4rem; cursor: pointer; transition: 0.2s;
+            display: flex; justify-content: center; align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        .circle-btn:hover { transform: scale(1.15); background: var(--surface); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+
+        .game-ui.offline .actions:first-child { display: none; }
+        .game-ui.offline .emote-btn { display: none; }
+
+        /* NOTIFICATIONS */
+        #notification {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: auto;
+            text-align: center; pointer-events: none;
+            opacity: 0;
+            transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 50;
+            
+            background: rgba(20, 20, 20, 0.9); /* Increased opacity for readability */
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            padding: 40px 80px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+        }
+        #notification.active { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        #notification h2 {
+            font-family: 'Playfair Display', serif; font-size: 5rem; margin: 0;
+            color: #ffffff; text-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        #notification p {
+            font-family: 'Inter'; font-size: 1rem; letter-spacing: 6px; text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.9); margin-top: 10px;
+        }
+
+        /* STATUS DOT */
+        .status-pill {
+            position: absolute; top: 30px; right: 30px; /* Hidden via opacity if needed */
+            display: none; /* Replaced by scoreboard pos */
+        }
+
+        /* Cinematic Bars */
+        .cinema-bar {
+            position: fixed; left: 0; width: 100%; height: 0;
+            background: black; z-index: 90; transition: height 1s cubic-bezier(0.8, 0, 0.2, 1);
+        }
+        .bar-top { top: 0; } .bar-bottom { bottom: 0; }
+        body.cinematic .bar-top, body.cinematic .bar-bottom { height: 10vh; }
+
+        /* Spinner animation */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* CONFETTI */
+        .confetti {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 100; overflow: hidden;
+        }
+        .confetti-piece {
+            position: absolute; width: 10px; height: 10px;
+            animation: confetti-fall 3s ease-out forwards;
+        }
+        @keyframes confetti-fall {
+            0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* WIN LINE ANIMATION */
+        .win-line {
+            position: absolute; background: var(--primary-color);
+            height: 6px; border-radius: 3px;
+            transform-origin: left center;
+            animation: win-line-draw 0.5s ease-out forwards;
+            box-shadow: 0 0 20px var(--primary-color), 0 0 40px var(--primary-color);
+            z-index: 5;
+        }
+        @keyframes win-line-draw {
+            0% { transform: scaleX(0); }
+            100% { transform: scaleX(1); }
+        }
+
+        /* STATS PANEL */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px;
+        }
+        .stat-card {
+            background: rgba(128,128,128,0.1); padding: 12px; border-radius: 8px; text-align: center;
+        }
+        .stat-card .stat-value { font-family: 'Playfair Display'; font-size: 1.5rem; font-weight: 700; }
+        .stat-card .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-sub); }
+
+        /* ACHIEVEMENTS */
+        .achievement-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px;
+        }
+        .achievement {
+            background: rgba(128,128,128,0.1); padding: 10px 5px; border-radius: 8px; text-align: center;
+            opacity: 0.4; transition: 0.3s;
+        }
+        .achievement.unlocked { opacity: 1; background: rgba(0,243,255,0.1); border: 1px solid var(--primary-color); }
+        .achievement .ach-icon { font-size: 1.5rem; }
+        .achievement .ach-name { font-size: 0.6rem; margin-top: 3px; font-weight: 600; }
+
+        /* MATCH HISTORY */
+        .history-list { max-height: 150px; overflow-y: auto; }
+        .history-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px; background: rgba(128,128,128,0.05); border-radius: 6px; margin-bottom: 5px;
+            font-size: 0.8rem;
+        }
+        .history-item .result { font-weight: 700; }
+        .history-item .result.win { color: #4CAF50; }
+        .history-item .result.loss { color: #f44336; }
+        .history-item .result.draw { color: var(--text-sub); }
+
+        /* COLOR PICKER */
+        .color-options { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .color-opt {
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+            border: 2px solid transparent; transition: 0.2s;
+        }
+        .color-opt:hover, .color-opt.active { transform: scale(1.2); border-color: var(--text-main); }
+
+        /* BOARD THEMES */
+        .theme-options { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .board-theme-opt {
+            padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 600;
+            background: rgba(128,128,128,0.1); border: 2px solid transparent; transition: 0.2s;
+        }
+        .board-theme-opt:hover, .board-theme-opt.active { border-color: var(--primary-color); background: rgba(0,243,255,0.1); }
+
+        /* GAME MODE OPTIONS */
+        .mode-options {
+            display: flex; gap: 10px; margin-top: 10px;
+        }
+        .mode-opt {
+            flex: 1; padding: 10px; border-radius: 8px; cursor: pointer; text-align: center;
+            background: rgba(128,128,128,0.1); border: 2px solid transparent; transition: 0.2s;
+            font-size: 0.8rem; font-weight: 600;
+        }
+        .mode-opt:hover, .mode-opt.active { border-color: var(--primary-color); background: rgba(0,243,255,0.1); }
+
+        /* UNDO BUTTON */
+        .undo-btn {
+            background: rgba(255,193,7,0.2); border-color: rgba(255,193,7,0.5); color: #ffc107;
+        }
+        .undo-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* ACHIEVEMENT TOAST */
+        #achievement-toast {
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: var(--surface); padding: 15px 25px; border-radius: 12px;
+            box-shadow: var(--shadow); display: flex; align-items: center; gap: 15px;
+            z-index: 200; opacity: 0; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid var(--primary-color);
+        }
+        #achievement-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        #achievement-toast .toast-icon { font-size: 2rem; }
+        #achievement-toast .toast-text h4 { margin: 0; font-size: 0.8rem; color: var(--primary-color); text-transform: uppercase; letter-spacing: 1px; }
+        #achievement-toast .toast-text p { margin: 2px 0 0; font-weight: 600; }
+
+        /* ADVANCED STATS */
+        .stats-tabs {
+            display: flex; gap: 5px; margin-bottom: 15px; flex-wrap: wrap;
+        }
+        .stats-tab {
+            flex: 1; min-width: 60px; padding: 8px; border-radius: 6px; cursor: pointer; text-align: center;
+            background: rgba(128,128,128,0.1); border: none; font-size: 0.7rem; font-weight: 600;
+            color: var(--text-main); transition: 0.2s;
+        }
+        .stats-tab.active { background: var(--primary-color); color: #000; }
+        .stats-tab-content { display: none; }
+        .stats-tab-content.active { display: block; }
+
+        /* HEATMAP */
+        .heatmap-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+            max-width: 150px; margin: 10px auto;
+        }
+        .heatmap-cell {
+            aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; font-weight: 700; color: #fff;
+            background: rgba(128,128,128,0.3);
+        }
+        .heatmap-cell.hot-1 { background: rgba(255,193,7,0.5); }
+        .heatmap-cell.hot-2 { background: rgba(255,152,0,0.6); }
+        .heatmap-cell.hot-3 { background: rgba(255,87,34,0.7); }
+        .heatmap-cell.hot-4 { background: rgba(244,67,54,0.8); }
+        .heatmap-cell.hot-5 { background: rgba(211,47,47,0.9); }
+
+        /* MODE STATS */
+        .mode-stats-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+        }
+        .mode-stat-card {
+            background: rgba(128,128,128,0.1); padding: 10px; border-radius: 8px; text-align: center;
+        }
+        .mode-stat-card .mode-name { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-sub); margin-bottom: 5px; }
+        .mode-stat-card .mode-winrate { font-family: 'Playfair Display'; font-size: 1.3rem; font-weight: 700; }
+        .mode-stat-card .mode-games { font-size: 0.6rem; color: var(--text-sub); }
+
+        /* FONT OPTIONS */
+        .font-options {
+            display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+        }
+        .font-opt {
+            padding: 6px 12px; border-radius: 6px; cursor: pointer;
+            background: rgba(128,128,128,0.1); border: 2px solid transparent;
+            font-size: 0.75rem; transition: 0.2s;
+        }
+        .font-opt:hover, .font-opt.active { border-color: var(--primary-color); background: rgba(0,243,255,0.1); }
+        .font-opt.font-inter { font-family: 'Inter', sans-serif; }
+        .font-opt.font-playfair { font-family: 'Playfair Display', serif; }
+        .font-opt.font-mono { font-family: 'Courier New', monospace; }
+        .font-opt.font-comic { font-family: 'Comic Sans MS', cursive; }
+
+        /* CUSTOM FONT CLASSES */
+        body.font-inter { font-family: 'Inter', sans-serif; }
+        body.font-playfair { font-family: 'Playfair Display', serif; }
+        body.font-mono { font-family: 'Courier New', monospace; }
+        body.font-comic { font-family: 'Comic Sans MS', cursive; }
+
+        /* --- MOBILE OPTIMIZATION --- */
+        @media (max-width: 600px) {
+            #ui-layer { padding: 20px; }
+            
+            .brand h1 { font-size: 1.6rem; }
+            .brand span { letter-spacing: 2px; font-size: 0.55rem; }
+            .brand-logo-small { width: 28px; height: 28px; }
+            
+            .center-panel { width: 92%; max-width: none; padding: 0 10px; }
+            .card-btn { padding: 18px 20px; }
+            .card-content h3 { font-size: 1rem; }
+            .card-content p { font-size: 0.8rem; }
+            .menu-title { font-size: 1.6rem; margin-bottom: 15px; }
+            
+            .about-content { padding: 20px; max-height: 75vh; }
+            .about-header h2 { font-size: 1.5rem; }
+            .setting-group { padding: 12px; margin-bottom: 15px; }
+            .setting-group h4 { font-size: 0.75rem; }
+            
+            #scoreboard { 
+                top: 15px; right: 15px; 
+                padding: 10px 12px; 
+                min-width: auto; 
+                background: rgba(255, 255, 255, 0.95); 
+                max-width: 140px;
+            }
+            body.dark-mode #scoreboard { background: rgba(20, 20, 20, 0.95); }
+            
+            .score-val { font-size: 1rem; }
+            .score-row { font-size: 0.7rem; min-width: auto; gap: 8px; }
+            #streak-display { font-size: 0.6rem; }
+            #timer-display { font-size: 0.75rem; padding: 4px 8px; }
+            #series-display { font-size: 0.6rem; }
+            
+            #notification { padding: 25px 15px; width: 85%; max-width: 320px; }
+            #notification h2 { font-size: 2.5rem; }
+            #notification p { letter-spacing: 3px; font-size: 0.7rem; }
+
+            .game-ui { 
+                bottom: 20px; 
+                flex-direction: column;
+                align-items: center;
+                gap: 12px;
+                padding: 0 15px;
+            }
+            .turn-display { 
+                order: 1; 
+                padding: 10px 25px; 
+                min-width: 130px; 
+                font-size: 1rem; 
+                margin-bottom: 5px;
+            }
+            .actions { order: 2; gap: 12px; justify-content: center; }
+            .circle-btn { 
+                width: 45px; height: 45px; 
+                font-size: 1.2rem; 
+                background: var(--surface); 
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            }
+            
+            #about-fab { bottom: 15px; right: 15px; width: 42px; height: 42px; font-size: 1.1rem; }
+            .theme-toggles { bottom: 15px; left: 15px; }
+            .t-btn { width: 28px; height: 28px; }
+
+            /* Mobile: New features */
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .stat-card { padding: 10px 8px; }
+            .stat-card .stat-value { font-size: 1.1rem; }
+            .stat-card .stat-label { font-size: 0.6rem; }
+            
+            .achievement-grid { grid-template-columns: repeat(3, 1fr); gap: 5px; }
+            .achievement { padding: 8px 4px; }
+            .achievement .ach-icon { font-size: 1.3rem; }
+            .achievement .ach-name { font-size: 0.5rem; }
+            
+            .color-options { gap: 6px; }
+            .color-opt { width: 26px; height: 26px; }
+            
+            .theme-options { gap: 6px; }
+            .board-theme-opt { padding: 6px 10px; font-size: 0.7rem; }
+            
+            .mode-options { flex-wrap: wrap; gap: 6px; }
+            .mode-opt { font-size: 0.7rem; padding: 8px 6px; min-width: 60px; }
+            
+            #achievement-toast { 
+                padding: 10px 15px; 
+                bottom: 70px; 
+                width: 85%;
+                max-width: 300px;
+            }
+            #achievement-toast .toast-icon { font-size: 1.4rem; }
+            #achievement-toast .toast-text h4 { font-size: 0.7rem; }
+            #achievement-toast .toast-text p { font-size: 0.85rem; }
+            
+            .history-list { max-height: 120px; }
+            .history-item { padding: 6px; font-size: 0.7rem; }
+            
+            .dev-profile { padding: 12px; gap: 12px; }
+            .dev-avatar { width: 40px; height: 40px; font-size: 0.9rem; }
+            .dev-info h4 { font-size: 1rem; }
+            .dev-info p { font-size: 0.7rem; }
+            .social-link { font-size: 0.7rem; }
+            
+            .legal-text h4 { font-size: 0.75rem; margin-top: 15px; }
+            .legal-text p { font-size: 0.75rem; }
+            
+            .close-btn { padding: 10px; font-size: 0.9rem; }
+            
+            .intro-text { font-size: 3rem; }
+            .intro-sub { font-size: 0.7rem; letter-spacing: 3px; }
+            .intro-logo-svg { width: 100px; height: 100px; margin-bottom: 25px; }
+
+            /* Mobile: Advanced features */
+            .stats-tabs { gap: 4px; }
+            .stats-tab { padding: 6px 4px; font-size: 0.6rem; min-width: 50px; }
+            
+            .heatmap-grid { max-width: 120px; gap: 3px; }
+            .heatmap-cell { font-size: 0.6rem; }
+            
+            .mode-stats-grid { gap: 5px; }
+            .mode-stat-card { padding: 8px 5px; }
+            .mode-stat-card .mode-name { font-size: 0.55rem; }
+            .mode-stat-card .mode-winrate { font-size: 1rem; }
+            .mode-stat-card .mode-games { font-size: 0.5rem; }
+            
+            .font-options { gap: 5px; }
+            .font-opt { padding: 5px 8px; font-size: 0.65rem; }
+        }
+
+        /* Tablet optimization */
+        @media (min-width: 601px) and (max-width: 900px) {
+            #ui-layer { padding: 25px; }
+            
+            .center-panel { max-width: 380px; }
+            
+            #scoreboard { top: 25px; right: 25px; }
+            
+            .game-ui { bottom: 35px; gap: 25px; }
+            .turn-display { padding: 12px 35px; font-size: 1.2rem; }
+            .circle-btn { width: 48px; height: 48px; font-size: 1.3rem; }
+            
+            .about-content { max-height: 65vh; }
+            
+            #achievement-toast { bottom: 90px; }
+        }
+
+        /* Large screens */
+        @media (min-width: 1200px) {
+            .center-panel { max-width: 480px; }
+            .card-btn { padding: 28px 35px; }
+            .about-content { max-height: 80vh; }
+        }
+
+        /* Landscape mobile */
+        @media (max-height: 500px) and (orientation: landscape) {
+            #ui-layer { padding: 15px; }
+            
+            .center-panel { max-height: 90vh; overflow-y: auto; }
+            .about-content { max-height: 80vh; }
+            
+            #scoreboard { top: 10px; right: 10px; padding: 8px 10px; }
+            .score-row { font-size: 0.65rem; }
+            
+            .game-ui { bottom: 10px; }
+            .turn-display { padding: 8px 20px; font-size: 0.9rem; }
+            .circle-btn { width: 40px; height: 40px; font-size: 1.1rem; }
+            
+            #notification { padding: 20px 30px; }
+            #notification h2 { font-size: 2rem; }
+            #notification p { font-size: 0.7rem; }
+            
+            .intro-logo-svg { width: 80px; height: 80px; margin-bottom: 15px; }
+            .intro-text { font-size: 2.5rem; }
+        }
+
+        /* Safe area for notched phones */
+        @supports (padding: max(0px)) {
+            #ui-layer {
+                padding-left: max(20px, env(safe-area-inset-left));
+                padding-right: max(20px, env(safe-area-inset-right));
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+                padding-top: max(20px, env(safe-area-inset-top));
+            }
+        }
+
+        /* Extra small screens (320px and below) */
+        @media (max-width: 360px) {
+            #ui-layer { padding: 15px; }
+            
+            .brand h1 { font-size: 1.4rem; }
+            .brand span { font-size: 0.5rem; letter-spacing: 1px; }
+            .brand-logo-small { width: 24px; height: 24px; }
+            
+            .menu-title { font-size: 1.4rem; }
+            .card-btn { padding: 14px 16px; }
+            .card-content h3 { font-size: 0.9rem; }
+            .card-content p { font-size: 0.7rem; }
+            
+            .about-content { padding: 15px; max-height: 80vh; }
+            .about-header h2 { font-size: 1.3rem; }
+            .setting-group { padding: 10px; margin-bottom: 12px; }
+            .setting-group h4 { font-size: 0.7rem; }
+            
+            #scoreboard { 
+                top: 12px; right: 12px; 
+                padding: 8px 10px; 
+                max-width: 120px;
+            }
+            .score-val { font-size: 0.9rem; }
+            .score-row { font-size: 0.6rem; gap: 6px; }
+            
+            #notification h2 { font-size: 2rem; }
+            #notification p { font-size: 0.6rem; letter-spacing: 2px; }
+            
+            .turn-display { padding: 8px 20px; font-size: 0.9rem; }
+            .circle-btn { width: 40px; height: 40px; font-size: 1.1rem; }
+            
+            .stats-grid { gap: 6px; }
+            .stat-card { padding: 8px 6px; }
+            .stat-card .stat-value { font-size: 1rem; }
+            .stat-card .stat-label { font-size: 0.55rem; }
+            
+            .achievement-grid { gap: 4px; }
+            .achievement { padding: 6px 3px; }
+            .achievement .ach-icon { font-size: 1.1rem; }
+            .achievement .ach-name { font-size: 0.45rem; }
+            
+            .color-opt { width: 24px; height: 24px; }
+            .board-theme-opt { padding: 5px 8px; font-size: 0.65rem; }
+            .mode-opt { padding: 6px 4px; font-size: 0.65rem; min-width: 50px; }
+            
+            .dev-avatar { width: 35px; height: 35px; font-size: 0.8rem; }
+            .dev-info h4 { font-size: 0.9rem; }
+            .dev-info p { font-size: 0.65rem; }
+            
+            .intro-logo-svg { width: 80px; height: 80px; margin-bottom: 20px; }
+            .intro-text { font-size: 2.5rem; }
+            .intro-sub { font-size: 0.6rem; letter-spacing: 2px; }
+        }
+
+    </style>
+</head>
+<body class="menu-active cinematic">
+
+    <!-- Local background audio: place your downloaded file here as bgm.mp3 -->
+    <audio id="bgm-audio" src="bgm.mp3" loop preload="auto" style="display:none"></audio>
+
+    <!-- Intro -->
+    <div id="intro-screen">
+        <svg class="intro-logo-svg" viewBox="0 0 100 100" fill="none" stroke="white" stroke-width="2">
+            <path d="M50 0 L50 100 M0 50 L100 50" stroke="#444" stroke-width="1" stroke-dasharray="4 4"/>
+            <circle cx="50" cy="50" r="40" stroke="#00f3ff" stroke-width="3"/>
+            <path d="M50 10 A40 40 0 0 0 50 90" fill="#ffffff"/>
+            <line x1="15" y1="85" x2="85" y2="15" stroke="#00f3ff" stroke-width="2"/>
+        </svg>
+        <div class="intro-text">ECLIPSE</div>
+        <div class="intro-sub">Architect Edition</div>
+    </div>
+
+    <!-- Cinematic Bars -->
+    <div class="cinema-bar bar-top"></div>
+    <div class="cinema-bar bar-bottom"></div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <header>
+            <div class="brand" onclick="app.toMenu()">
+                
+                <div class="brand-text">
+                    <h1>Eclipse</h1>
+                    <span>Architect Edition</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- SCOREBOARD (Compact) -->
+        <div id="scoreboard">
+            <div class="score-row" id="row-x">
+                <span id="lbl-x">Player X</span>
+                <span class="score-val" id="val-x">0</span>
+            </div>
+            <div style="height:1px; background:rgba(128,128,128,0.2); margin:5px 0;"></div>
+            <div class="score-row" id="row-o">
+                <span id="lbl-o">Player O</span>
+                <span class="score-val" id="val-o">0</span>
+            </div>
+            <div id="streak-display"></div>
+            <div id="timer-display" style="display:none;">⏱ 30s</div>
+            <div id="series-display" style="font-size:0.7rem; text-align:center; margin-top:5px; color:var(--text-sub);"></div>
+        </div>
+
+        <!-- MENU -->
+        <div id="menu-panel" class="center-panel hidden">
+            <div class="menu-title"><span class="emoji">🎯</span> Select Mode</div>
+            <div class="card-btn" onclick="app.playOnline()">
+                <div class="card-content">
+                    <h3><span class="emoji"></span> Online Match</h3>
+                    <p>Global Network</p>
+                </div>
+                <span class="arrow">→</span>
+            </div>
+            <div class="card-btn" onclick="app.playAI()">
+                <div class="card-content">
+                    <h3><span class="emoji"></span> Vs Engine</h3>
+                    <p>Neural Training</p>
+                </div>
+                <span class="arrow">→</span>
+            </div>
+            <div class="card-btn" onclick="app.playLocal()">
+                <div class="card-content">
+                    <h3><span class="emoji"></span> Local Play</h3>
+                    <p>Same Device</p>
+                </div>
+                <span class="arrow">→</span>
+            </div>
+            <div class="card-btn" onclick="app.showStats()">
+                <div class="card-content">
+                    <h3><span class="emoji"></span> Statistics</h3>
+                    <p>View your progress</p>
+                </div>
+                <span class="arrow">→</span>
+            </div>
+        </div>
+
+        <!-- THEME TOGGLE (BOTTOM LEFT) -->
+        <div class="theme-toggles" id="theme-fab">
+            <button class="t-btn t-light active" onclick="app.setTheme('light')"></button>
+            <button class="t-btn t-dark" onclick="app.setTheme('dark')"></button>
+        </div>
+
+        <!-- ABOUT FAB -->
+        <button id="about-fab" onclick="app.showAbout()" title="About & Legal">i</button>
+
+        <!-- ABOUT PANEL -->
+        <div id="about-panel" class="center-panel hidden">
+            <div class="about-content">
+                <div class="about-header">
+                    <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="50" cy="50" r="40" />
+                        <path d="M50 10 A40 40 0 0 0 50 90" fill="currentColor" stroke="none" />
+                        <line x1="15" y1="85" x2="85" y2="15" />
+                    </svg>
+                    <h2>ECLIPSE</h2>
+                    <p>Architect Edition v1.4</p>
+                </div>
+                
+                <div class="setting-group">
+                    <h4><span class="emoji">🔊</span> Audio Settings</h4>
+                    <div style="margin-bottom: 12px;">
+                        <label for="volume-slider" style="font-size: 0.85rem; color: var(--text-sub); display: block; margin-bottom: 8px;">
+                            Volume: <span id="volume-value">50</span>%
+                        </label>
+                        <input type="range" id="volume-slider" min="0" max="100" value="50" 
+                               style="width: 100%; cursor: pointer; accent-color: var(--text-main);"
+                               oninput="bgm.setVolume(this.value)">
+                    </div>
+                    <button id="bgm-toggle" class="setting-btn" onclick="bgm.toggle()">Mute Background Music</button>
+                    <p style="font-size: 0.7rem; color: var(--text-sub); margin-top: 6px;">
+                        Credits: <a href="https://www.youtube.com/watch?v=_1ThytX4ZiA&list=PLfP6i5T0-DkKApCPXKcyP-1GF4vJ2yT-k&index=11" target="_blank" rel="noopener noreferrer" style="color: var(--text-main);">'Dystopia' by Neutrin05</a>
+                    </p>
+                </div>
+
+                <div class="setting-group">
+                    <h4><span class="emoji">🎨</span> Piece Colors</h4>
+                    <div style="margin-bottom: 10px;">
+                        <span style="font-size: 0.8rem; color: var(--text-sub);">Player X:</span>
+                        <div class="color-options" id="color-x-options">
+                            <div class="color-opt active" style="background:#1a1a1a" onclick="app.setPieceColor('X', '#1a1a1a')"></div>
+                            <div class="color-opt" style="background:#e74c3c" onclick="app.setPieceColor('X', '#e74c3c')"></div>
+                            <div class="color-opt" style="background:#3498db" onclick="app.setPieceColor('X', '#3498db')"></div>
+                            <div class="color-opt" style="background:#9b59b6" onclick="app.setPieceColor('X', '#9b59b6')"></div>
+                            <div class="color-opt" style="background:#1abc9c" onclick="app.setPieceColor('X', '#1abc9c')"></div>
+                            <div class="color-opt" style="background:#f39c12" onclick="app.setPieceColor('X', '#f39c12')"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.8rem; color: var(--text-sub);">Player O:</span>
+                        <div class="color-options" id="color-o-options">
+                            <div class="color-opt active" style="background:#888888" onclick="app.setPieceColor('O', '#888888')"></div>
+                            <div class="color-opt" style="background:#e74c3c" onclick="app.setPieceColor('O', '#e74c3c')"></div>
+                            <div class="color-opt" style="background:#3498db" onclick="app.setPieceColor('O', '#3498db')"></div>
+                            <div class="color-opt" style="background:#9b59b6" onclick="app.setPieceColor('O', '#9b59b6')"></div>
+                            <div class="color-opt" style="background:#1abc9c" onclick="app.setPieceColor('O', '#1abc9c')"></div>
+                            <div class="color-opt" style="background:#f39c12" onclick="app.setPieceColor('O', '#f39c12')"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <h4><span class="emoji">🎭</span> Board Theme</h4>
+                    <div class="theme-options">
+                        <div class="board-theme-opt active" onclick="app.setBoardTheme('classic')">Classic</div>
+                        <div class="board-theme-opt" onclick="app.setBoardTheme('neon')">Neon</div>
+                        <div class="board-theme-opt" onclick="app.setBoardTheme('wood')">Wood</div>
+                        <div class="board-theme-opt" onclick="app.setBoardTheme('marble')">Marble</div>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <h4><span class="emoji">🔤</span> Font Style</h4>
+                    <div class="font-options">
+                        <div class="font-opt font-inter active" onclick="app.setFont('inter')">Modern</div>
+                        <div class="font-opt font-playfair" onclick="app.setFont('playfair')">Elegant</div>
+                        <div class="font-opt font-mono" onclick="app.setFont('mono')">Retro</div>
+                        <div class="font-opt font-comic" onclick="app.setFont('comic')">Fun</div>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <h4><span class="emoji">⚙️</span> Game Settings</h4>
+                    <div style="margin-bottom: 10px;">
+                        <span style="font-size: 0.8rem; color: var(--text-sub);">Turn Timer:</span>
+                        <div class="mode-options" id="timer-options">
+                            <div class="mode-opt active" data-value="0" onclick="app.setTimer(0)">Off</div>
+                            <div class="mode-opt" data-value="15" onclick="app.setTimer(15)">15s</div>
+                            <div class="mode-opt" data-value="30" onclick="app.setTimer(30)">30s</div>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.8rem; color: var(--text-sub);">Match Type:</span>
+                        <div class="mode-options" id="series-options">
+                            <div class="mode-opt active" data-value="0" onclick="app.setSeriesMode(0)">Endless</div>
+                            <div class="mode-opt" data-value="3" onclick="app.setSeriesMode(3)">Best of 3</div>
+                            <div class="mode-opt" data-value="5" onclick="app.setSeriesMode(5)">Best of 5</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dev-profile">
+                    <div class="dev-avatar">NK</div>
+                    <div class="dev-info">
+                        <h4>Nishal K</h4>
+                        <p>Malappuram, Kerala</p>
+                        <div class="social-links">
+                            <a href="https://instagram.com/DemonKing.___" target="_blank" class="social-link">Instagram</a>
+                            <a href="https://github.com/nishal21" target="_blank" class="social-link">GitHub</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="legal-text">
+                    <h4><span class="emoji">🔒</span> Privacy Policy</h4>
+                    <p>This application does not collect personal data. Matchmaking IDs are generated anonymously via Firebase Authentication for gameplay purposes only. No user data is stored persistently beyond the scope of an active session.</p>
+                    
+                    <h4><span class="emoji">📋</span> Terms & Conditions</h4>
+                    <p>By using this application, you agree to play fairly. The developer is not responsible for any connectivity issues or data usage charges incurred while playing online. Use responsibly.</p>
+                </div>
+
+                <button class="setting-btn" onclick="app.resetSettings()" style="margin-bottom: 10px; background: rgba(244,67,54,0.1); border-color: rgba(244,67,54,0.3); color: #f44336;">
+                    <span class="emoji">🔄</span> Reset All Settings
+                </button>
+                <button class="close-btn" onclick="app.closeAbout()">Close</button>
+            </div>
+        </div>
+
+        <!-- AI DIFFICULTY SELECTION -->
+        <div id="difficulty-panel" class="center-panel hidden">
+            <div class="menu-title"><span class="emoji">⚔️</span> Select Difficulty</div>
+            <div class="card-btn" onclick="app.startAI('easy')">
+                <div class="card-content">
+                    <h3><span class="emoji">😊</span> Easy</h3>
+                    <p>Random moves, great for beginners</p>
+                </div>
+                <span class="arrow">→</span>
+            </div>
+            <div class="card-btn" onclick="app.startAI('medium')">
+                <div class="card-content">
+                    <h3><span class="emoji">🧠</span> Medium</h3>
+                    <p>Balanced challenge, sometimes smart</p>
+                </div>
+                <span class="arrow">→</span>
+            </div>
+            <div class="card-btn" onclick="app.startAI('hard')">
+                <div class="card-content">
+                    <h3><span class="emoji">🔥</span> Hard</h3>
+                    <p>Unbeatable AI, good luck!</p>
+                </div>
+                <span class="arrow">→</span>
+            </div>
+            <button onclick="app.closeDifficulty()" style="margin-top:10px; background:transparent; border:none; border-bottom:1px solid var(--text-main); color:var(--text-main); cursor:pointer; font-size:0.9rem; padding:10px;">← Back to Menu</button>
+        </div>
+
+        <!-- STATS PANEL -->
+        <div id="stats-panel" class="center-panel hidden">
+            <div class="about-content">
+                <div class="about-header">
+                    <h2><span class="emoji">📊</span> Statistics</h2>
+                    <p>Your gaming journey</p>
+                </div>
+                
+                <!-- Stats Tabs -->
+                <div class="stats-tabs">
+                    <button class="stats-tab active" onclick="app.showStatsTab('overview')">Overview</button>
+                    <button class="stats-tab" onclick="app.showStatsTab('modes')">By Mode</button>
+                    <button class="stats-tab" onclick="app.showStatsTab('heatmap')">Heatmap</button>
+                    <button class="stats-tab" onclick="app.showStatsTab('achievements')">Awards</button>
+                </div>
+
+                <!-- Overview Tab -->
+                <div class="stats-tab-content active" id="tab-overview">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-wins">0</div>
+                            <div class="stat-label"><span class="emoji">🏆</span> Wins</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-losses">0</div>
+                            <div class="stat-label"><span class="emoji">💔</span> Losses</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-draws">0</div>
+                            <div class="stat-label"><span class="emoji">🤝</span> Draws</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-winrate">0%</div>
+                            <div class="stat-label"><span class="emoji">📈</span> Win Rate</div>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h4><span class="emoji">🔥</span> Best Streak: <span id="stat-best-streak">0</span></h4>
+                        <p style="font-size:0.8rem; color:var(--text-sub);">Current Streak: <span id="stat-current-streak">0</span></p>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h4><span class="emoji">⏱️</span> Game Stats</h4>
+                        <p style="font-size:0.8rem; color:var(--text-sub);">Avg Game Time: <span id="stat-avg-time">0s</span></p>
+                        <p style="font-size:0.8rem; color:var(--text-sub);">Total Games: <span id="stat-total-games">0</span></p>
+                        <p style="font-size:0.8rem; color:var(--text-sub);">Days Played: <span id="stat-days-played">0</span></p>
+                    </div>
+
+                    <div class="setting-group">
+                        <h4><span class="emoji">📜</span> Match History</h4>
+                        <div class="history-list" id="history-list">
+                            <p style="font-size:0.8rem; color:var(--text-sub); text-align:center;">No matches yet</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mode Stats Tab -->
+                <div class="stats-tab-content" id="tab-modes">
+                    <div class="setting-group">
+                        <h4><span class="emoji">📈</span> Win Rate by Mode</h4>
+                        <div class="mode-stats-grid">
+                            <div class="mode-stat-card">
+                                <div class="mode-name"><span class="emoji">🤖</span> AI</div>
+                                <div class="mode-winrate" id="stat-ai-winrate">0%</div>
+                                <div class="mode-games" id="stat-ai-games">0 games</div>
+                            </div>
+                            <div class="mode-stat-card">
+                                <div class="mode-name"><span class="emoji">🎮</span> Local</div>
+                                <div class="mode-winrate" id="stat-local-winrate">0%</div>
+                                <div class="mode-games" id="stat-local-games">0 games</div>
+                            </div>
+                            <div class="mode-stat-card">
+                                <div class="mode-name"><span class="emoji">🌐</span> Online</div>
+                                <div class="mode-winrate" id="stat-online-winrate">0%</div>
+                                <div class="mode-games" id="stat-online-games">0 games</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h4><span class="emoji">🎯</span> Favorite Opening</h4>
+                        <p style="font-size:0.8rem; color:var(--text-sub);">Most used first move: <span id="stat-fav-opening">-</span></p>
+                        <p style="font-size:0.8rem; color:var(--text-sub);">Win rate from favorite: <span id="stat-fav-winrate">-</span></p>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h4><span class="emoji">📉</span> Loss Analysis</h4>
+                        <p style="font-size:0.8rem; color:var(--text-sub);">Most lost to position: <span id="stat-loss-pos">-</span></p>
+                        <p style="font-size:0.8rem; color:var(--text-sub);">Avg moves before loss: <span id="stat-loss-moves">-</span></p>
+                    </div>
+                </div>
+
+                <!-- Heatmap Tab -->
+                <div class="stats-tab-content" id="tab-heatmap">
+                    <div class="setting-group">
+                        <h4><span class="emoji">🗺️</span> Win Heatmap</h4>
+                        <p style="font-size:0.7rem; color:var(--text-sub); text-align:center; margin-bottom:10px;">Cells you win from most often</p>
+                        <div class="heatmap-grid" id="win-heatmap">
+                            <div class="heatmap-cell" data-cell="0">0</div>
+                            <div class="heatmap-cell" data-cell="1">0</div>
+                            <div class="heatmap-cell" data-cell="2">0</div>
+                            <div class="heatmap-cell" data-cell="3">0</div>
+                            <div class="heatmap-cell" data-cell="4">0</div>
+                            <div class="heatmap-cell" data-cell="5">0</div>
+                            <div class="heatmap-cell" data-cell="6">0</div>
+                            <div class="heatmap-cell" data-cell="7">0</div>
+                            <div class="heatmap-cell" data-cell="8">0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h4><span class="emoji">🎯</span> Opening Heatmap</h4>
+                        <p style="font-size:0.7rem; color:var(--text-sub); text-align:center; margin-bottom:10px;">Your most used first moves</p>
+                        <div class="heatmap-grid" id="opening-heatmap">
+                            <div class="heatmap-cell" data-cell="0">0</div>
+                            <div class="heatmap-cell" data-cell="1">0</div>
+                            <div class="heatmap-cell" data-cell="2">0</div>
+                            <div class="heatmap-cell" data-cell="3">0</div>
+                            <div class="heatmap-cell" data-cell="4">0</div>
+                            <div class="heatmap-cell" data-cell="5">0</div>
+                            <div class="heatmap-cell" data-cell="6">0</div>
+                            <div class="heatmap-cell" data-cell="7">0</div>
+                            <div class="heatmap-cell" data-cell="8">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Achievements Tab -->
+                <div class="stats-tab-content" id="tab-achievements">
+                    <div class="setting-group">
+                        <h4><span class="emoji">🏆</span> Achievements (<span id="ach-count">0</span>/15)</h4>
+                        <div class="achievement-grid">
+                            <div class="achievement" id="ach-first-win" title="Win your first game">
+                                <div class="ach-icon">🎯</div>
+                                <div class="ach-name">First Blood</div>
+                            </div>
+                            <div class="achievement" id="ach-streak-3" title="Win 3 in a row">
+                                <div class="ach-icon">🔥</div>
+                                <div class="ach-name">On Fire</div>
+                            </div>
+                            <div class="achievement" id="ach-streak-5" title="Win 5 in a row">
+                                <div class="ach-icon">⚡</div>
+                                <div class="ach-name">Unstoppable</div>
+                            </div>
+                            <div class="achievement" id="ach-streak-10" title="Win 10 in a row">
+                                <div class="ach-icon">👑</div>
+                                <div class="ach-name">Legendary</div>
+                            </div>
+                            <div class="achievement" id="ach-beat-hard" title="Beat Hard AI">
+                                <div class="ach-icon">🤖</div>
+                                <div class="ach-name">AI Slayer</div>
+                            </div>
+                            <div class="achievement" id="ach-play-10" title="Play 10 games">
+                                <div class="ach-icon">🎮</div>
+                                <div class="ach-name">Gamer</div>
+                            </div>
+                            <div class="achievement" id="ach-play-50" title="Play 50 games">
+                                <div class="ach-icon">🏅</div>
+                                <div class="ach-name">Veteran</div>
+                            </div>
+                            <div class="achievement" id="ach-play-100" title="Play 100 games">
+                                <div class="ach-icon">💎</div>
+                                <div class="ach-name">Master</div>
+                            </div>
+                            <div class="achievement" id="ach-online-win" title="Win online match">
+                                <div class="ach-icon">🌐</div>
+                                <div class="ach-name">Connected</div>
+                            </div>
+                            <!-- New Achievements -->
+                            <div class="achievement" id="ach-perfect-game" title="Win without opponent getting 2 in a row">
+                                <div class="ach-icon">✨</div>
+                                <div class="ach-name">Perfect</div>
+                            </div>
+                            <div class="achievement" id="ach-speed-demon" title="Win in under 10 seconds">
+                                <div class="ach-icon">⚡</div>
+                                <div class="ach-name">Speed Demon</div>
+                            </div>
+                            <div class="achievement" id="ach-comeback-king" title="Win after being down 0-2 in a series">
+                                <div class="ach-icon">🔄</div>
+                                <div class="ach-name">Comeback King</div>
+                            </div>
+                            <div class="achievement" id="ach-ai-master" title="Beat Hard AI 10 times">
+                                <div class="ach-icon">🧠</div>
+                                <div class="ach-name">AI Master</div>
+                            </div>
+                            <div class="achievement" id="ach-world-traveler" title="Play 50 online matches">
+                                <div class="ach-icon">🌍</div>
+                                <div class="ach-name">World Traveler</div>
+                            </div>
+                            <div class="achievement" id="ach-daily-player" title="Play 7 days in a row">
+                                <div class="ach-icon">📅</div>
+                                <div class="ach-name">Daily Player</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="close-btn" onclick="app.closeStats()">Close</button>
+            </div>
+        </div>
+
+        <!-- SEARCH -->
+        <div id="search-panel" class="center-panel hidden" style="text-align:center;">
+            <h2 style="font-family:Playfair Display; font-size:2rem; margin-bottom:10px;"><span class="emoji">🔍</span> Searching...</h2>
+            <p style="color:var(--text-sub);">Establishing secure uplink</p>
+            <div style="margin: 30px auto; width: 40px; height: 40px; border: 2px solid var(--text-main); border-top-color: transparent; border-radius: 50%; animation: spin 1s infinite linear;"></div>
+            <button onclick="app.cancelSearch()" style="background:transparent; border:none; border-bottom:1px solid var(--text-main); color:var(--text-main); cursor:pointer; font-size:0.9rem;">Cancel Request</button>
+        </div>
+
+        <!-- NOTIFICATION -->
+        <div id="notification">
+            <h2 id="notif-title">Victory</h2>
+            <p id="notif-sub">Checkmate</p>
+        </div>
+
+        <!-- GAME HUD -->
+        <div id="game-ui" class="game-ui">
+            <div class="actions">
+                <button class="circle-btn emote-btn" onclick="app.emote('👋')">👋</button>
+                <button class="circle-btn emote-btn" onclick="app.emote('🤔')">🤔</button>
+                <button class="circle-btn undo-btn" id="undo-btn" onclick="app.undoMove()" title="Undo" style="display:none;">↩️</button>
+            </div>
+            <div class="turn-display" id="turn-txt">Your Turn</div>
+            <div class="actions">
+                <button class="circle-btn emote-btn" onclick="app.emote('👏')">👏</button>
+                <button class="circle-btn" style="color:#ff4444; border-color:rgba(255,0,0,0.2);" onclick="app.leaveGame()">✕</button>
+            </div>
+        </div>
+
+        <!-- ACHIEVEMENT TOAST -->
+        <div id="achievement-toast">
+            <div class="toast-icon">🏆</div>
+            <div class="toast-text">
+                <h4>Achievement Unlocked!</h4>
+                <p id="toast-achievement-name">First Win</p>
+            </div>
+        </div>
+
+        <!-- CONFETTI CONTAINER -->
+        <div id="confetti-container" class="confetti"></div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- YouTube API removed: using local audio only -->
+
+    <script>
+        // --- FIREBASE CONFIG (Add yours below) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'eclipse-architect';
+const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", authDomain: "tic-tac-toe-b9f95.firebaseapp.com", projectId: "tic-tac-toe-b9f95", storageBucket: "tic-tac-toe-b9f95.firebasestorage.app", messagingSenderId: "852596753086", appId: "1:852596753086:web:a079e5c6e92cc1aed394ef", measurementId: "G-PK9GM5NK2X" };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // --- BGM ENGINE (Local audio only) ---
+        const bgm = {
+            audioEl: document.getElementById('bgm-audio'), // local audio element
+            isMuted: false,
+            ready: false,
+            initialized: false, // Track if already initialized
+            volume: 0.5, // Default volume 50%
+            init: function() {
+                if (this.initialized) return; // Prevent duplicate initialization
+                this.initialized = true;
+                
+                // load saved mute preference
+                try {
+                    const stored = localStorage.getItem('bgmMuted');
+                    this.isMuted = stored === 'true';
+                    // Load saved volume
+                    const storedVol = localStorage.getItem('bgmVolume');
+                    if (storedVol !== null) {
+                        this.volume = parseFloat(storedVol);
+                    }
+                } catch(e) { this.isMuted = false; }
+
+                if(this.audioEl) {
+                    this.audioEl.volume = this.volume;
+                    this.audioEl.muted = this.isMuted;
+                    this.audioEl.loop = true; // Ensure loop is enabled
+                    this.ready = true;
+                    this.updateButton();
+                    this.updateVolumeUI();
+                    
+                    // Fallback: restart audio when it ends (some browsers need this)
+                    this.audioEl.addEventListener('ended', () => {
+                        this.audioEl.currentTime = 0;
+                        this.audioEl.play().catch(e => {});
+                    });
+                }
+            },
+            start: function() {
+                if(this.audioEl) {
+                    this.audioEl.loop = true; // Ensure loop before playing
+                    const p = this.audioEl.play();
+                    if(p && p.catch) p.catch(e => { /* autoplay blocked until user interacts */ });
+                }
+            },
+            setVolume: function(val) {
+                this.volume = val / 100;
+                if(this.audioEl) {
+                    this.audioEl.volume = this.volume;
+                }
+                try { localStorage.setItem('bgmVolume', this.volume); } catch(e) {}
+                this.updateVolumeUI();
+            },
+            updateVolumeUI: function() {
+                const slider = document.getElementById('volume-slider');
+                const valueSpan = document.getElementById('volume-value');
+                if(slider) slider.value = Math.round(this.volume * 100);
+                if(valueSpan) valueSpan.innerText = Math.round(this.volume * 100);
+            },
+            toggle: function() {
+                this.isMuted = !this.isMuted;
+                if(this.audioEl) {
+                    this.audioEl.muted = this.isMuted;
+                }
+                try { localStorage.setItem('bgmMuted', this.isMuted); } catch(e) {}
+                this.updateButton();
+            },
+            updateButton: function() {
+                const btn = document.getElementById('bgm-toggle');
+                if(!btn) return;
+                btn.innerText = this.isMuted ? "Unmute Background Music" : "Mute Background Music";
+                if(this.isMuted) btn.classList.add('muted'); else btn.classList.remove('muted');
+            }
+        };
+
+        // Initialize bgm object now that elements exist
+        bgm.init();
+
+        // --- AUDIO ENGINE (Acoustic SFX) ---
+        const AudioSys = {
+            ctx: null,
+            init() {
+                if(!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    // FIX: Pass valid oscillator arguments (frequency, duration, type, volume)
+                    this.play(200, 0.1, 'sine', 0.01);
+                }
+                if(this.ctx.state === 'suspended') this.ctx.resume();
+                
+                // Trigger BGM start on first interaction
+                bgm.start();
+            },
+            play(f, duration, type='sine', vol=0.1) {
+                if(!this.ctx) return;
+                const o = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                o.type = type; 
+                o.frequency.setValueAtTime(f, this.ctx.currentTime);
+                g.gain.setValueAtTime(0, this.ctx.currentTime);
+                g.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                o.connect(g); g.connect(this.ctx.destination);
+                o.start(); o.stop(this.ctx.currentTime + duration);
+            },
+            sfx: {
+                intro: () => AudioSys.play(100, 2.0, 'sine', 0.2),
+                hover: () => AudioSys.play(300, 0.1, 'sine', 0.05),
+                place: () => { 
+                    // Solid click
+                    AudioSys.play(150, 0.1, 'triangle', 0.1); 
+                    setTimeout(()=>AudioSys.play(100, 0.2, 'square', 0.05), 50);
+                },
+                win: () => [523.25, 659.25, 783.99, 1046.50].forEach((f,i)=>setTimeout(()=>AudioSys.play(f, 2.0, 'sine', 0.1), i*200)),
+                msg: () => AudioSys.play(800, 0.5, 'sine', 0.1)
+            }
+        };
+
+        // --- VISUAL ENGINE ---
+        class Renderer {
+            constructor() {
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0xeef2f5);
+                this.scene.fog = new THREE.Fog(0xeef2f5, 10, 40);
+
+                this.camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 100);
+                // Start High for intro
+                this.camera.position.set(0, 40, 0); 
+                this.targetCamPos = new THREE.Vector3(0, 14, 10);
+                this.camera.lookAt(0,0,0);
+
+                this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.getElementById('canvas-container').appendChild(this.renderer.domElement);
+
+                this.pieces = [];
+                this.hitboxes = [];
+                this.theme = 'light';
+                this.raycaster = new THREE.Raycaster(); // Single raycaster instance
+                
+                this.initWorld();
+                this.adjustView();
+                this.animate();
+
+                window.addEventListener('resize', () => {
+                    this.adjustView();
+                });
+            }
+
+            adjustView() {
+                this.camera.aspect = window.innerWidth/window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+                const isPortrait = window.innerWidth < window.innerHeight;
+                this.gameplayPos = isPortrait ? new THREE.Vector3(0, 18, 16) : new THREE.Vector3(0, 14, 10);
+                if (this.camera.position.y < 30) {
+                    this.targetCamPos.copy(this.gameplayPos);
+                }
+            }
+
+            initWorld() {
+                const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+                this.scene.add(ambient);
+
+                this.spot = new THREE.SpotLight(0xffffff, 1);
+                this.spot.position.set(5, 20, 5);
+                this.spot.angle = 0.5;
+                this.spot.penumbra = 0.5;
+                this.spot.castShadow = true;
+                this.spot.shadow.mapSize.width = 2048;
+                this.spot.shadow.mapSize.height = 2048;
+                this.scene.add(this.spot);
+
+                const slabGeo = new THREE.BoxGeometry(8, 0.5, 8);
+                this.slabMat = new THREE.MeshStandardMaterial({color: 0xffffff, roughness: 0.1, metalness: 0.1});
+                this.slab = new THREE.Mesh(slabGeo, this.slabMat);
+                this.slab.position.y = -0.5;
+                this.slab.receiveShadow = true;
+                this.scene.add(this.slab);
+
+                const gridMat = new THREE.MeshBasicMaterial({color: 0xcccccc});
+                this.lines = [];
+                const addLine = (w,d,x,z) => {
+                    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.51, d), gridMat);
+                    m.position.set(x, -0.5, z);
+                    this.scene.add(m);
+                    this.lines.push(m);
+                }
+                addLine(0.05, 7, -1.1, 0); addLine(0.05, 7, 1.1, 0);
+                addLine(7, 0.05, 0, -1.1); addLine(7, 0.05, 0, 1.1);
+
+                const hitGeo = new THREE.PlaneGeometry(2, 2);
+                for(let i=0; i<9; i++) {
+                    const x = (i%3-1)*2.2; const z = (Math.floor(i/3)-1)*2.2;
+                    const m = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({visible:false}));
+                    m.rotation.x = -Math.PI/2; m.position.set(x, 0.1, z); m.userData = {id:i};
+                    this.scene.add(m); this.hitboxes.push(m);
+                }
+            }
+
+            setTheme(mode) {
+                this.theme = mode;
+                const isDark = mode === 'dark';
+                const bg = isDark ? 0x0a0a0a : 0xeef2f5;
+                const slab = isDark ? 0x1a1a1a : 0xffffff;
+                const line = isDark ? 0x333333 : 0xcccccc;
+                const fog = isDark ? 0x0a0a0a : 0xeef2f5;
+
+                this.scene.background.setHex(bg);
+                this.scene.fog.color.setHex(fog);
+                this.slabMat.color.setHex(slab);
+                this.lines.forEach(l => l.material.color.setHex(line));
+                
+                this.pieces.forEach(p => {
+                    const type = p.userData.type;
+                    const col = isDark ? (type==='X' ? 0xffffff : 0x666666) : (type==='X' ? 0x1a1a1a : 0x888888);
+                    if(p.isGroup) p.children.forEach(c => c.material.color.setHex(col));
+                    else p.material.color.setHex(col);
+                });
+            }
+
+            spawnPiece(type, idx, customColor = null) {
+                const x = (idx%3-1)*2.2; const z = (Math.floor(idx/3)-1)*2.2;
+                const isDark = this.theme === 'dark';
+                
+                let col;
+                if (customColor) {
+                    col = parseInt(customColor.replace('#', ''), 16);
+                } else {
+                    col = isDark ? (type==='X' ? 0xffffff : 0x666666) : (type==='X' ? 0x1a1a1a : 0x888888);
+                }
+                
+                const mat = new THREE.MeshStandardMaterial({color: col, roughness: 0.1, metalness: 0.2});
+
+                let mesh;
+                if(type === 'X') {
+                    const grp = new THREE.Group();
+                    const armGeo = new THREE.BoxGeometry(1.8, 0.3, 0.4);
+                    const arm1 = new THREE.Mesh(armGeo, mat); arm1.rotation.y = Math.PI/4; arm1.castShadow = true;
+                    const arm2 = new THREE.Mesh(armGeo, mat); arm2.rotation.y = -Math.PI/4; arm2.castShadow = true;
+                    grp.add(arm1, arm2);
+                    mesh = grp;
+                } else {
+                    const geo = new THREE.TorusGeometry(0.7, 0.15, 16, 48);
+                    mesh = new THREE.Mesh(geo, mat);
+                    mesh.rotation.x = Math.PI/2;
+                    mesh.castShadow = true;
+                }
+
+                mesh.position.set(x, 4, z);
+                mesh.userData = { targetY: 0.25, velocity: 0, active: true, type: type };
+                this.scene.add(mesh);
+                this.pieces.push(mesh);
+                return mesh;
+            }
+
+            spawnEmote(emoji) {
+                const d = document.createElement('div');
+                d.innerText = emoji;
+                d.style.position = 'absolute'; d.style.left = '50%'; d.style.top = '40%';
+                d.style.transform = 'translate(-50%, -50%) scale(0)';
+                d.style.fontSize = '5rem'; d.style.transition = '0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                d.style.textShadow = '0 10px 30px rgba(0,0,0,0.2)';
+                document.getElementById('ui-layer').appendChild(d);
+                requestAnimationFrame(() => d.style.transform = 'translate(-50%, -50%) scale(1)');
+                setTimeout(() => { d.style.opacity = 0; setTimeout(() => d.remove(), 500); }, 2000);
+            }
+
+            clear() {
+                this.pieces.forEach(p => this.scene.remove(p));
+                this.pieces = [];
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                this.camera.position.lerp(this.targetCamPos, 0.05);
+                this.camera.lookAt(0,0,0);
+
+                this.pieces.forEach(p => {
+                    if(p.userData.active) {
+                        p.userData.velocity -= 0.02;
+                        p.position.y += p.userData.velocity;
+                        if(p.position.y <= p.userData.targetY) {
+                            p.position.y = p.userData.targetY;
+                            p.userData.velocity *= -0.3;
+                            if(Math.abs(p.userData.velocity) < 0.01) p.userData.active = false;
+                        }
+                    }
+                });
+
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // --- GAME LOGIC ---
+        class Game {
+            constructor() {
+                this.vis = new Renderer();
+                this.board = Array(9).fill(null);
+                this.mode = 'menu';
+                this.aiDifficulty = 'medium'; // Default difficulty
+                this.myId = null;
+                this.gameId = null;
+                this.role = null;
+                this.turn = 'X';
+                this.active = false;
+                this.unsub = null;
+                this.lastEmote = 0;
+                this.hostingLoop = null; 
+                this.scores = { X: 0, O: 0 };
+                this.roundNumber = 1; // Track round number for alternating starts
+
+                // New features
+                this.moveHistory = []; // For undo
+                this.turnTimer = 0; // 0 = off, else seconds
+                this.timerInterval = null;
+                this.currentTime = 0;
+                this.seriesMode = 0; // 0 = endless, 3 = best of 3, 5 = best of 5
+                this.pieceColors = { X: '#1a1a1a', O: '#888888' };
+                this.boardTheme = 'classic';
+                this.winLine = null;
+                this.customFont = 'inter';
+                this.gameStartTime = null;
+                
+                // Advanced stats
+                this.advancedStats = this.loadAdvancedStats();
+                
+                // Stats & achievements
+                this.stats = this.loadStats();
+                this.currentStreak = 0;
+
+                this.mouse = new THREE.Vector2();
+                window.addEventListener('pointerup', e => this.onClick(e));
+                
+                window.addEventListener('mousemove', e => {
+                    const factor = window.innerWidth < 600 ? 0.2 : 1.0;
+                    const x = (e.clientX/window.innerWidth)*2-1;
+                    const y = -(e.clientY/window.innerHeight)*2+1;
+                    if(this.vis.gameplayPos) {
+                        this.vis.targetCamPos.x = this.vis.gameplayPos.x + x * factor;
+                        this.vis.targetCamPos.z = this.vis.gameplayPos.z + y * factor;
+                    }
+                });
+
+                this.introSequence();
+                this.initAuth();
+                this.loadSettings();
+            }
+
+            // --- STATS & ACHIEVEMENTS ---
+            loadStats() {
+                try {
+                    const saved = localStorage.getItem('eclipseStats');
+                    if (saved) return JSON.parse(saved);
+                } catch(e) {}
+                return { wins: 0, losses: 0, draws: 0, bestStreak: 0, gamesPlayed: 0, achievements: [], history: [] };
+            }
+
+            saveStats() {
+                try {
+                    localStorage.setItem('eclipseStats', JSON.stringify(this.stats));
+                } catch(e) {}
+            }
+            
+            loadAdvancedStats() {
+                try {
+                    const saved = localStorage.getItem('eclipseAdvancedStats');
+                    if (saved) return JSON.parse(saved);
+                } catch(e) {}
+                return {
+                    modeStats: {
+                        ai: { wins: 0, losses: 0, draws: 0, games: 0 },
+                        local: { wins: 0, losses: 0, draws: 0, games: 0 },
+                        online: { wins: 0, losses: 0, draws: 0, games: 0 }
+                    },
+                    winningCells: [0,0,0,0,0,0,0,0,0],
+                    openingMoves: [0,0,0,0,0,0,0,0,0],
+                    gameTimes: [],
+                    openingWins: {},
+                    lossPatterns: { byMode: {} },
+                    hardAIWins: 0,
+                    onlineGames: 0,
+                    dailyStreak: 0,
+                    lastPlayDate: null
+                };
+            }
+            
+            saveAdvancedStats() {
+                try {
+                    localStorage.setItem('eclipseAdvancedStats', JSON.stringify(this.advancedStats));
+                } catch(e) {}
+            }
+
+            loadSettings() {
+                try {
+                    const settings = localStorage.getItem('eclipseSettings');
+                    if (settings) {
+                        const s = JSON.parse(settings);
+                        if (s.pieceColors) this.pieceColors = s.pieceColors;
+                        if (s.boardTheme) {
+                            this.boardTheme = s.boardTheme;
+                            this.applyBoardTheme(s.boardTheme);
+                        }
+                        if (s.turnTimer !== undefined) this.turnTimer = s.turnTimer;
+                        if (s.seriesMode !== undefined) this.seriesMode = s.seriesMode;
+                        
+                        // Load font setting
+                        if (s.customFont) {
+                            this.customFont = s.customFont;
+                            this.setFont(s.customFont);
+                        }
+                        
+                        // Update UI to reflect loaded settings
+                        this.updateSettingsUI();
+                    }
+                } catch(e) {}
+            }
+            
+            updateSettingsUI() {
+                // Update timer options UI
+                const timerGroup = document.getElementById('timer-options');
+                if (timerGroup) {
+                    timerGroup.querySelectorAll('.mode-opt').forEach(el => {
+                        el.classList.remove('active');
+                        const val = parseInt(el.getAttribute('data-value')) || 0;
+                        if (val === this.turnTimer) el.classList.add('active');
+                    });
+                }
+                
+                // Update series options UI
+                const seriesGroup = document.getElementById('series-options');
+                if (seriesGroup) {
+                    seriesGroup.querySelectorAll('.mode-opt').forEach(el => {
+                        el.classList.remove('active');
+                        const val = parseInt(el.getAttribute('data-value')) || 0;
+                        if (val === this.seriesMode) el.classList.add('active');
+                    });
+                }
+                
+                // Update board theme UI
+                document.querySelectorAll('.board-theme-opt').forEach(el => {
+                    el.classList.remove('active');
+                    if (el.innerText.toLowerCase() === this.boardTheme) el.classList.add('active');
+                });
+                
+                // Update piece colors UI
+                this.updateColorUI('X', this.pieceColors.X);
+                this.updateColorUI('O', this.pieceColors.O);
+            }
+            
+            updateColorUI(player, color) {
+                const container = document.getElementById(`color-${player.toLowerCase()}-options`);
+                if (container) {
+                    container.querySelectorAll('.color-opt').forEach(el => {
+                        el.classList.remove('active');
+                        if (el.style.background === color || el.style.backgroundColor === color) {
+                            el.classList.add('active');
+                        }
+                    });
+                }
+            }
+
+            saveSettings() {
+                try {
+                    localStorage.setItem('eclipseSettings', JSON.stringify({
+                        pieceColors: this.pieceColors,
+                        boardTheme: this.boardTheme,
+                        turnTimer: this.turnTimer,
+                        seriesMode: this.seriesMode,
+                        customFont: this.customFont
+                    }));
+                } catch(e) {}
+            }
+            
+            resetSettings() {
+                // Reset to defaults
+                this.pieceColors = { X: '#1a1a1a', O: '#888888' };
+                this.boardTheme = 'classic';
+                this.turnTimer = 0;
+                this.seriesMode = 0;
+                this.customFont = 'inter';
+                
+                // Clear localStorage
+                try {
+                    localStorage.removeItem('eclipseSettings');
+                } catch(e) {}
+                
+                // Update UI
+                this.updateSettingsUI();
+                this.applyBoardTheme('classic');
+                this.setFont('inter');
+                
+                // Show confirmation
+                alert('Settings reset to defaults!');
+            }
+
+            // --- CUSTOM FONT ---
+            setFont(fontName) {
+                this.customFont = fontName;
+                const body = document.body;
+                
+                const fonts = {
+                    'inter': "'Inter', 'Segoe UI', sans-serif",
+                    'playfair': "'Playfair Display', Georgia, serif",
+                    'mono': "'Courier New', 'Consolas', monospace",
+                    'comic': "'Comic Sans MS', 'Chalkboard', cursive"
+                };
+                
+                body.style.fontFamily = fonts[fontName] || fonts['inter'];
+                
+                // Update UI
+                document.querySelectorAll('.font-opt').forEach(el => {
+                    el.classList.remove('active');
+                    if (el.onclick && el.onclick.toString().includes(fontName)) {
+                        el.classList.add('active');
+                    }
+                });
+                
+                this.saveSettings();
+            }
+
+            recordGame(result, mode) {
+                this.stats.gamesPlayed++;
+                
+                if (result === 'win') {
+                    this.stats.wins++;
+                    this.currentStreak++;
+                    if (this.currentStreak > this.stats.bestStreak) {
+                        this.stats.bestStreak = this.currentStreak;
+                    }
+                } else if (result === 'loss') {
+                    this.stats.losses++;
+                    this.currentStreak = 0;
+                } else {
+                    this.stats.draws++;
+                }
+
+                // Add to history
+                const historyItem = {
+                    result: result,
+                    mode: mode,
+                    date: new Date().toLocaleDateString(),
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                };
+                this.stats.history.unshift(historyItem);
+                if (this.stats.history.length > 10) this.stats.history.pop();
+                
+                // === ADVANCED STATS TRACKING ===
+                
+                // Win rate by mode
+                if (!this.advancedStats.modeStats) {
+                    this.advancedStats.modeStats = {
+                        ai: { wins: 0, losses: 0, draws: 0 },
+                        local: { wins: 0, losses: 0, draws: 0 },
+                        online: { wins: 0, losses: 0, draws: 0 }
+                    };
+                }
+                if (this.advancedStats.modeStats[mode]) {
+                    if (result === 'win') this.advancedStats.modeStats[mode].wins++;
+                    else if (result === 'loss') this.advancedStats.modeStats[mode].losses++;
+                    else this.advancedStats.modeStats[mode].draws++;
+                }
+                
+                // Average game time
+                if (!this.advancedStats.totalGameTime) this.advancedStats.totalGameTime = 0;
+                if (!this.advancedStats.gamesForAvgTime) this.advancedStats.gamesForAvgTime = 0;
+                if (this.lastGameDuration) {
+                    this.advancedStats.totalGameTime += this.lastGameDuration;
+                    this.advancedStats.gamesForAvgTime++;
+                }
+                
+                // Track first moves (opening moves)
+                if (!this.advancedStats.openingMoves) {
+                    this.advancedStats.openingMoves = Array(9).fill(0);
+                }
+                if (this.firstMoveCell !== null) {
+                    this.advancedStats.openingMoves[this.firstMoveCell]++;
+                }
+                
+                // Track winning cells
+                if (result === 'win' && this.firstMoveCell !== null) {
+                    if (!this.advancedStats.winningCells) {
+                        this.advancedStats.winningCells = Array(9).fill(0);
+                    }
+                    this.advancedStats.winningCells[this.firstMoveCell]++;
+                }
+                
+                // Track loss patterns
+                if (result === 'loss') {
+                    if (!this.advancedStats.lossPatterns) {
+                        this.advancedStats.lossPatterns = { byMode: {}, byDifficulty: {} };
+                    }
+                    if (!this.advancedStats.lossPatterns.byMode[mode]) {
+                        this.advancedStats.lossPatterns.byMode[mode] = 0;
+                    }
+                    this.advancedStats.lossPatterns.byMode[mode]++;
+                    
+                    if (mode === 'ai' && this.aiDifficulty) {
+                        if (!this.advancedStats.lossPatterns.byDifficulty[this.aiDifficulty]) {
+                            this.advancedStats.lossPatterns.byDifficulty[this.aiDifficulty] = 0;
+                        }
+                        this.advancedStats.lossPatterns.byDifficulty[this.aiDifficulty]++;
+                    }
+                }
+                
+                this.saveAdvancedStats();
+
+                // Check achievements
+                this.checkAchievements(result, mode);
+                this.saveStats();
+                this.updateStreakDisplay();
+            }
+
+            checkAchievements(result, mode) {
+                const newAchievements = [];
+
+                // First win
+                if (result === 'win' && !this.stats.achievements.includes('first-win')) {
+                    this.stats.achievements.push('first-win');
+                    newAchievements.push({ id: 'first-win', name: 'First Blood', icon: '🎯' });
+                }
+
+                // Streak achievements
+                if (this.currentStreak >= 3 && !this.stats.achievements.includes('streak-3')) {
+                    this.stats.achievements.push('streak-3');
+                    newAchievements.push({ id: 'streak-3', name: 'On Fire', icon: '🔥' });
+                }
+                if (this.currentStreak >= 5 && !this.stats.achievements.includes('streak-5')) {
+                    this.stats.achievements.push('streak-5');
+                    newAchievements.push({ id: 'streak-5', name: 'Unstoppable', icon: '⚡' });
+                }
+                if (this.currentStreak >= 10 && !this.stats.achievements.includes('streak-10')) {
+                    this.stats.achievements.push('streak-10');
+                    newAchievements.push({ id: 'streak-10', name: 'Legendary', icon: '👑' });
+                }
+
+                // Beat hard AI
+                if (result === 'win' && mode === 'ai' && this.aiDifficulty === 'hard' && !this.stats.achievements.includes('beat-hard')) {
+                    this.stats.achievements.push('beat-hard');
+                    newAchievements.push({ id: 'beat-hard', name: 'AI Slayer', icon: '🤖' });
+                }
+
+                // Games played
+                if (this.stats.gamesPlayed >= 10 && !this.stats.achievements.includes('play-10')) {
+                    this.stats.achievements.push('play-10');
+                    newAchievements.push({ id: 'play-10', name: 'Gamer', icon: '🎮' });
+                }
+                if (this.stats.gamesPlayed >= 50 && !this.stats.achievements.includes('play-50')) {
+                    this.stats.achievements.push('play-50');
+                    newAchievements.push({ id: 'play-50', name: 'Veteran', icon: '🏅' });
+                }
+                if (this.stats.gamesPlayed >= 100 && !this.stats.achievements.includes('play-100')) {
+                    this.stats.achievements.push('play-100');
+                    newAchievements.push({ id: 'play-100', name: 'Master', icon: '💎' });
+                }
+
+                // Online win
+                if (result === 'win' && mode === 'online' && !this.stats.achievements.includes('online-win')) {
+                    this.stats.achievements.push('online-win');
+                    newAchievements.push({ id: 'online-win', name: 'Connected', icon: '🌐' });
+                }
+                
+                // === NEW ACHIEVEMENTS ===
+                
+                // Perfect Game - Win without opponent getting 2 in a row (tracked via advancedStats)
+                if (result === 'win' && this.lastGamePerfect && !this.stats.achievements.includes('perfect-game')) {
+                    this.stats.achievements.push('perfect-game');
+                    newAchievements.push({ id: 'perfect-game', name: 'Perfect Game', icon: '🎯' });
+                }
+                
+                // Speed Demon - Win in under 10 seconds
+                if (result === 'win' && this.lastGameDuration && this.lastGameDuration < 10 && !this.stats.achievements.includes('speed-demon')) {
+                    this.stats.achievements.push('speed-demon');
+                    newAchievements.push({ id: 'speed-demon', name: 'Speed Demon', icon: '⚡' });
+                }
+                
+                // Comeback King - Win after being down 0-2 in series
+                if (result === 'win' && this.wasDown02 && !this.stats.achievements.includes('comeback-king')) {
+                    this.stats.achievements.push('comeback-king');
+                    newAchievements.push({ id: 'comeback-king', name: 'Comeback King', icon: '🔥' });
+                }
+                
+                // AI Master - Beat Hard AI 10 times
+                if (!this.advancedStats.hardAIWins) this.advancedStats.hardAIWins = 0;
+                if (result === 'win' && mode === 'ai' && this.aiDifficulty === 'hard') {
+                    this.advancedStats.hardAIWins++;
+                    this.saveAdvancedStats();
+                }
+                if (this.advancedStats.hardAIWins >= 10 && !this.stats.achievements.includes('ai-master')) {
+                    this.stats.achievements.push('ai-master');
+                    newAchievements.push({ id: 'ai-master', name: 'AI Master', icon: '🧠' });
+                }
+                
+                // World Traveler - Play 50 online matches
+                if (!this.advancedStats.onlineGames) this.advancedStats.onlineGames = 0;
+                if (mode === 'online') {
+                    this.advancedStats.onlineGames++;
+                    this.saveAdvancedStats();
+                }
+                if (this.advancedStats.onlineGames >= 50 && !this.stats.achievements.includes('world-traveler')) {
+                    this.stats.achievements.push('world-traveler');
+                    newAchievements.push({ id: 'world-traveler', name: 'World Traveler', icon: '🌍' });
+                }
+                
+                // Daily Player - Play 7 days in a row
+                this.checkDailyStreak();
+                if (this.advancedStats.dailyStreak >= 7 && !this.stats.achievements.includes('daily-player')) {
+                    this.stats.achievements.push('daily-player');
+                    newAchievements.push({ id: 'daily-player', name: 'Daily Player', icon: '📅' });
+                }
+
+                // Show toast for new achievements
+                if (newAchievements.length > 0) {
+                    this.showAchievementToast(newAchievements[0]);
+                }
+            }
+            
+            checkDailyStreak() {
+                const today = new Date().toDateString();
+                const lastPlay = this.advancedStats.lastPlayDate;
+                
+                if (!lastPlay) {
+                    this.advancedStats.dailyStreak = 1;
+                } else {
+                    const lastDate = new Date(lastPlay);
+                    const todayDate = new Date(today);
+                    const diffDays = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 1) {
+                        this.advancedStats.dailyStreak = (this.advancedStats.dailyStreak || 0) + 1;
+                    } else if (diffDays > 1) {
+                        this.advancedStats.dailyStreak = 1;
+                    }
+                    // If same day, don't change streak
+                }
+                
+                this.advancedStats.lastPlayDate = today;
+                this.saveAdvancedStats();
+            }
+
+            showAchievementToast(achievement) {
+                const toast = document.getElementById('achievement-toast');
+                toast.querySelector('.toast-icon').innerText = achievement.icon;
+                document.getElementById('toast-achievement-name').innerText = achievement.name;
+                toast.classList.add('show');
+                
+                // Haptic feedback
+                this.haptic('success');
+
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            }
+
+            updateStreakDisplay() {
+                const streakEl = document.getElementById('streak-display');
+                if (this.currentStreak >= 2) {
+                    streakEl.innerText = `🔥 ${this.currentStreak} Win Streak!`;
+                } else {
+                    streakEl.innerText = '';
+                }
+            }
+
+            showStats() {
+                AudioSys.init();
+                document.getElementById('menu-panel').classList.add('hidden');
+                document.getElementById('about-fab').classList.add('hidden');
+                document.getElementById('theme-fab').classList.add('hidden');
+                document.getElementById('stats-panel').classList.remove('hidden');
+
+                // Update stats display
+                document.getElementById('stat-wins').innerText = this.stats.wins;
+                document.getElementById('stat-losses').innerText = this.stats.losses;
+                document.getElementById('stat-draws').innerText = this.stats.draws;
+                
+                const total = this.stats.wins + this.stats.losses + this.stats.draws;
+                const winRate = total > 0 ? Math.round((this.stats.wins / total) * 100) : 0;
+                document.getElementById('stat-winrate').innerText = winRate + '%';
+                
+                document.getElementById('stat-best-streak').innerText = this.stats.bestStreak;
+                document.getElementById('stat-current-streak').innerText = this.currentStreak;
+                
+                // === ADVANCED STATS ===
+                
+                // Game time stats
+                const avgTime = this.advancedStats.gamesForAvgTime > 0 
+                    ? Math.round(this.advancedStats.totalGameTime / this.advancedStats.gamesForAvgTime) 
+                    : 0;
+                document.getElementById('stat-avg-time').innerText = avgTime + 's';
+                document.getElementById('stat-total-games').innerText = this.stats.gamesPlayed || 0;
+                document.getElementById('stat-days-played').innerText = this.advancedStats.dailyStreak || 0;
+                
+                // Mode stats
+                this.updateModeStats();
+                
+                // Heatmaps
+                this.updateHeatmaps();
+                
+                // Favorite opening
+                this.updateFavoriteOpening();
+
+                // Update achievements (including new ones)
+                const achMap = {
+                    'first-win': 'ach-first-win',
+                    'streak-3': 'ach-streak-3',
+                    'streak-5': 'ach-streak-5',
+                    'streak-10': 'ach-streak-10',
+                    'beat-hard': 'ach-beat-hard',
+                    'play-10': 'ach-play-10',
+                    'play-50': 'ach-play-50',
+                    'play-100': 'ach-play-100',
+                    'online-win': 'ach-online-win',
+                    'perfect-game': 'ach-perfect-game',
+                    'speed-demon': 'ach-speed-demon',
+                    'comeback-king': 'ach-comeback-king',
+                    'ai-master': 'ach-ai-master',
+                    'world-traveler': 'ach-world-traveler',
+                    'daily-player': 'ach-daily-player'
+                };
+                
+                Object.keys(achMap).forEach(key => {
+                    const el = document.getElementById(achMap[key]);
+                    if (el) {
+                        if (this.stats.achievements.includes(key)) {
+                            el.classList.add('unlocked');
+                        } else {
+                            el.classList.remove('unlocked');
+                        }
+                    }
+                });
+
+                // Update history
+                const historyList = document.getElementById('history-list');
+                if (this.stats.history.length === 0) {
+                    historyList.innerHTML = '<p style="font-size:0.8rem; color:var(--text-sub); text-align:center;">No matches yet</p>';
+                } else {
+                    historyList.innerHTML = this.stats.history.map(h => `
+                        <div class="history-item">
+                            <span class="result ${h.result}">${h.result.toUpperCase()}</span>
+                            <span style="color:var(--text-sub)">${h.mode}</span>
+                            <span style="font-size:0.7rem; color:var(--text-sub)">${h.date}</span>
+                        </div>
+                    `).join('');
+                }
+                
+                // Show overview tab by default
+                this.showStatsTab('overview');
+            }
+            
+            showStatsTab(tabName) {
+                // Update tab buttons
+                document.querySelectorAll('.stats-tab').forEach(tab => {
+                    tab.classList.remove('active');
+                    if (tab.textContent.toLowerCase().includes(tabName.substring(0, 4))) {
+                        tab.classList.add('active');
+                    }
+                });
+                
+                // Update tab content
+                document.querySelectorAll('.stats-tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                const tabContent = document.getElementById(`tab-${tabName}`);
+                if (tabContent) tabContent.classList.add('active');
+            }
+            
+            updateModeStats() {
+                const modes = ['ai', 'local', 'online'];
+                modes.forEach(mode => {
+                    const stats = this.advancedStats.modeStats?.[mode] || { wins: 0, losses: 0, draws: 0 };
+                    const total = stats.wins + stats.losses + stats.draws;
+                    const winRate = total > 0 ? Math.round((stats.wins / total) * 100) : 0;
+                    
+                    const winrateEl = document.getElementById(`stat-${mode}-winrate`);
+                    const gamesEl = document.getElementById(`stat-${mode}-games`);
+                    if (winrateEl) winrateEl.innerText = winRate + '%';
+                    if (gamesEl) gamesEl.innerText = total + ' games';
+                });
+            }
+            
+            updateHeatmaps() {
+                // Win heatmap
+                const winCells = this.advancedStats.winningCells || Array(9).fill(0);
+                const maxWins = Math.max(...winCells, 1);
+                document.querySelectorAll('#win-heatmap .heatmap-cell').forEach((cell, i) => {
+                    const val = winCells[i] || 0;
+                    cell.innerText = val;
+                    cell.className = 'heatmap-cell';
+                    if (val > 0) {
+                        const intensity = Math.min(5, Math.ceil((val / maxWins) * 5));
+                        cell.classList.add(`hot-${intensity}`);
+                    }
+                });
+                
+                // Opening heatmap
+                const openingCells = this.advancedStats.openingMoves || Array(9).fill(0);
+                const maxOpening = Math.max(...openingCells, 1);
+                document.querySelectorAll('#opening-heatmap .heatmap-cell').forEach((cell, i) => {
+                    const val = openingCells[i] || 0;
+                    cell.innerText = val;
+                    cell.className = 'heatmap-cell';
+                    if (val > 0) {
+                        const intensity = Math.min(5, Math.ceil((val / maxOpening) * 5));
+                        cell.classList.add(`hot-${intensity}`);
+                    }
+                });
+            }
+            
+            updateFavoriteOpening() {
+                const openings = this.advancedStats.openingMoves || Array(9).fill(0);
+                const maxIdx = openings.indexOf(Math.max(...openings));
+                const cellNames = ['Top-Left', 'Top-Mid', 'Top-Right', 'Mid-Left', 'Center', 'Mid-Right', 'Bot-Left', 'Bot-Mid', 'Bot-Right'];
+                
+                const favEl = document.getElementById('stat-fav-opening');
+                if (favEl) {
+                    if (Math.max(...openings) > 0) {
+                        favEl.innerText = cellNames[maxIdx] + ` (${openings[maxIdx]}x)`;
+                    } else {
+                        favEl.innerText = '-';
+                    }
+                }
+                
+                // Win rate from favorite opening
+                const winCells = this.advancedStats.winningCells || Array(9).fill(0);
+                const favWinrateEl = document.getElementById('stat-fav-winrate');
+                if (favWinrateEl && openings[maxIdx] > 0) {
+                    const winRate = Math.round((winCells[maxIdx] / openings[maxIdx]) * 100);
+                    favWinrateEl.innerText = winRate + '%';
+                } else if (favWinrateEl) {
+                    favWinrateEl.innerText = '-';
+                }
+                
+                // Loss analysis
+                const lossByMode = this.advancedStats.lossPatterns?.byMode || {};
+                const maxLossMode = Object.keys(lossByMode).reduce((a, b) => 
+                    (lossByMode[a] || 0) > (lossByMode[b] || 0) ? a : b, 'ai');
+                const lossEl = document.getElementById('stat-loss-pos');
+                if (lossEl) {
+                    if (Object.keys(lossByMode).length > 0) {
+                        lossEl.innerText = maxLossMode.toUpperCase() + ` (${lossByMode[maxLossMode]}x)`;
+                    } else {
+                        lossEl.innerText = '-';
+                    }
+                }
+            }
+
+            closeStats() {
+                document.getElementById('stats-panel').classList.add('hidden');
+                document.getElementById('menu-panel').classList.remove('hidden');
+                document.getElementById('about-fab').classList.remove('hidden');
+                document.getElementById('theme-fab').classList.remove('hidden');
+            }
+
+            // --- CUSTOMIZATION ---
+            setPieceColor(player, color) {
+                this.pieceColors[player] = color;
+                
+                // Update UI
+                const container = document.getElementById(`color-${player.toLowerCase()}-options`);
+                container.querySelectorAll('.color-opt').forEach(el => {
+                    el.classList.remove('active');
+                    if (el.style.background === color || this.rgbToHex(el.style.background) === color) {
+                        el.classList.add('active');
+                    }
+                });
+
+                // Update existing pieces
+                this.vis.pieces.forEach(p => {
+                    if (p.userData.type === player) {
+                        const col = parseInt(color.replace('#', ''), 16);
+                        if (p.isGroup) p.children.forEach(c => c.material.color.setHex(col));
+                        else p.material.color.setHex(col);
+                    }
+                });
+
+                this.saveSettings();
+            }
+
+            rgbToHex(rgb) {
+                if (rgb.startsWith('#')) return rgb;
+                const result = rgb.match(/\d+/g);
+                if (!result) return rgb;
+                return '#' + result.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+            }
+
+            setBoardTheme(theme) {
+                this.boardTheme = theme;
+                
+                // Update UI
+                document.querySelectorAll('.board-theme-opt').forEach(el => {
+                    el.classList.remove('active');
+                    if (el.innerText.toLowerCase() === theme) el.classList.add('active');
+                });
+
+                this.applyBoardTheme(theme);
+                this.saveSettings();
+            }
+
+            applyBoardTheme(theme) {
+                const isDark = document.body.classList.contains('dark-mode');
+                let slabColor, lineColor;
+
+                switch(theme) {
+                    case 'neon':
+                        slabColor = isDark ? 0x0a0a2e : 0x1a1a3e;
+                        lineColor = 0x00f3ff;
+                        break;
+                    case 'wood':
+                        slabColor = isDark ? 0x3d2817 : 0x8B4513;
+                        lineColor = isDark ? 0x2a1a0f : 0x5c3317;
+                        break;
+                    case 'marble':
+                        slabColor = isDark ? 0x2a2a2a : 0xf5f5f5;
+                        lineColor = isDark ? 0x444444 : 0xcccccc;
+                        break;
+                    default: // classic
+                        slabColor = isDark ? 0x1a1a1a : 0xffffff;
+                        lineColor = isDark ? 0x333333 : 0xcccccc;
+                }
+
+                if (this.vis.slabMat) this.vis.slabMat.color.setHex(slabColor);
+                if (this.vis.lines) this.vis.lines.forEach(l => l.material.color.setHex(lineColor));
+            }
+
+            setTimer(seconds) {
+                this.turnTimer = seconds;
+                
+                // Update UI using ID selector
+                const timerGroup = document.getElementById('timer-options');
+                if (timerGroup) {
+                    timerGroup.querySelectorAll('.mode-opt').forEach(el => {
+                        el.classList.remove('active');
+                        const val = parseInt(el.getAttribute('data-value')) || 0;
+                        if (val === seconds) el.classList.add('active');
+                    });
+                }
+
+                this.saveSettings();
+            }
+
+            setSeriesMode(rounds) {
+                this.seriesMode = rounds;
+                
+                // Update UI using ID selector
+                const seriesGroup = document.getElementById('series-options');
+                if (seriesGroup) {
+                    seriesGroup.querySelectorAll('.mode-opt').forEach(el => {
+                        el.classList.remove('active');
+                        const val = parseInt(el.getAttribute('data-value')) || 0;
+                        if (val === rounds) el.classList.add('active');
+                    });
+                }
+
+                this.saveSettings();
+            }
+
+            // --- TIMER ---
+            startTimer() {
+                if (this.turnTimer <= 0) return;
+                
+                this.currentTime = this.turnTimer;
+                const timerEl = document.getElementById('timer-display');
+                timerEl.style.display = 'block';
+                timerEl.classList.remove('warning');
+                this.updateTimerDisplay();
+
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                
+                this.timerInterval = setInterval(() => {
+                    this.currentTime--;
+                    this.updateTimerDisplay();
+
+                    if (this.currentTime <= 5) {
+                        timerEl.classList.add('warning');
+                        this.haptic('warning');
+                    }
+
+                    if (this.currentTime <= 0) {
+                        this.onTimerExpired();
+                    }
+                }, 1000);
+            }
+
+            stopTimer() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+                document.getElementById('timer-display').style.display = 'none';
+            }
+
+            updateTimerDisplay() {
+                document.getElementById('timer-display').innerText = `⏱ ${this.currentTime}s`;
+            }
+
+            onTimerExpired() {
+                this.stopTimer();
+                
+                if (this.mode === 'ai') {
+                    // AI wins the round
+                    this.end('O');
+                } else if (this.mode === 'local') {
+                    // Current player loses turn, switch to other
+                    const loser = this.turn;
+                    this.turn = this.turn === 'X' ? 'O' : 'X';
+                    this.updateHUD();
+                    this.showNotif('Time Out!', `Player ${loser} ran out of time`);
+                    setTimeout(() => {
+                        document.getElementById('notification').classList.remove('active');
+                        this.startTimer();
+                    }, 1500);
+                }
+            }
+
+            // --- UNDO ---
+            undoMove() {
+                if (this.mode !== 'ai' || this.moveHistory.length < 2) return;
+                if (!this.active) return;
+
+                // Remove last two moves (player + AI)
+                const aiMove = this.moveHistory.pop();
+                const playerMove = this.moveHistory.pop();
+
+                // Remove pieces from board
+                this.board[aiMove.idx] = null;
+                this.board[playerMove.idx] = null;
+
+                // Remove visual pieces (last two)
+                if (this.vis.pieces.length >= 2) {
+                    const p1 = this.vis.pieces.pop();
+                    const p2 = this.vis.pieces.pop();
+                    this.vis.scene.remove(p1);
+                    this.vis.scene.remove(p2);
+                }
+
+                this.turn = 'X';
+                this.updateHUD();
+                this.haptic('light');
+                
+                // Update undo button state
+                document.getElementById('undo-btn').disabled = this.moveHistory.length < 2;
+            }
+
+            // --- HAPTIC FEEDBACK ---
+            haptic(type = 'light') {
+                if (!navigator.vibrate) return;
+                
+                switch(type) {
+                    case 'light': navigator.vibrate(10); break;
+                    case 'medium': navigator.vibrate(25); break;
+                    case 'heavy': navigator.vibrate(50); break;
+                    case 'success': navigator.vibrate([50, 50, 50]); break;
+                    case 'warning': navigator.vibrate([100, 50, 100]); break;
+                    case 'error': navigator.vibrate([200, 100, 200]); break;
+                }
+            }
+
+            // --- WIN LINE ANIMATION ---
+            showWinLine(combo) {
+                const positions = [
+                    { x: -2.2, z: -2.2 }, { x: 0, z: -2.2 }, { x: 2.2, z: -2.2 },
+                    { x: -2.2, z: 0 }, { x: 0, z: 0 }, { x: 2.2, z: 0 },
+                    { x: -2.2, z: 2.2 }, { x: 0, z: 2.2 }, { x: 2.2, z: 2.2 }
+                ];
+
+                const start = positions[combo[0]];
+                const end = positions[combo[2]];
+
+                // Create 3D line
+                const material = new THREE.MeshBasicMaterial({ 
+                    color: 0x00f3ff, 
+                    transparent: true, 
+                    opacity: 0.8 
+                });
+
+                const dx = end.x - start.x;
+                const dz = end.z - start.z;
+                const length = Math.sqrt(dx * dx + dz * dz);
+                const angle = Math.atan2(dz, dx);
+
+                const geometry = new THREE.BoxGeometry(length + 1, 0.2, 0.2);
+                this.winLine = new THREE.Mesh(geometry, material);
+                this.winLine.position.set(
+                    (start.x + end.x) / 2,
+                    0.5,
+                    (start.z + end.z) / 2
+                );
+                this.winLine.rotation.y = -angle;
+
+                this.vis.scene.add(this.winLine);
+
+                // Animate glow
+                let glowIntensity = 0;
+                const glowAnim = setInterval(() => {
+                    glowIntensity += 0.1;
+                    if (glowIntensity > Math.PI * 2) glowIntensity = 0;
+                    material.opacity = 0.5 + Math.sin(glowIntensity) * 0.3;
+                }, 50);
+
+                setTimeout(() => {
+                    clearInterval(glowAnim);
+                    if (this.winLine) {
+                        this.vis.scene.remove(this.winLine);
+                        this.winLine = null;
+                    }
+                }, 3500);
+            }
+
+            // --- CONFETTI ---
+            spawnConfetti() {
+                const container = document.getElementById('confetti-container');
+                const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9', '#00f3ff', '#ff9ff3'];
+
+                for (let i = 0; i < 100; i++) {
+                    setTimeout(() => {
+                        const piece = document.createElement('div');
+                        piece.className = 'confetti-piece';
+                        piece.style.left = Math.random() * 100 + '%';
+                        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                        piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+                        piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+                        
+                        if (Math.random() > 0.5) {
+                            piece.style.borderRadius = '50%';
+                        }
+
+                        container.appendChild(piece);
+
+                        setTimeout(() => piece.remove(), 4000);
+                    }, i * 20);
+                }
+            }
+
+            // --- SERIES MODE ---
+            updateSeriesDisplay() {
+                const el = document.getElementById('series-display');
+                if (this.seriesMode === 0) {
+                    el.innerText = '';
+                    return;
+                }
+
+                const totalGames = this.scores.X + this.scores.O;
+                const remaining = this.seriesMode - totalGames;
+                el.innerText = `Best of ${this.seriesMode} • Game ${totalGames + 1} of ${this.seriesMode}`;
+            }
+
+            checkSeriesWin() {
+                if (this.seriesMode === 0) return null;
+                
+                const totalGames = this.scores.X + this.scores.O;
+                
+                // Only check for winner after all games in the series are played
+                if (totalGames < this.seriesMode) return null;
+                
+                // All games played - determine winner by who has more wins
+                if (this.scores.X > this.scores.O) return 'X';
+                if (this.scores.O > this.scores.X) return 'O';
+                
+                // It's a tie in the series - could add tiebreaker logic here
+                // For now, return draw
+                return 'tie';
+            }
+
+            introSequence() {
+                const scr = document.getElementById('intro-screen');
+                setTimeout(() => scr.classList.add('playing'), 100);
+                setTimeout(() => {
+                    scr.classList.remove('playing');
+                    scr.classList.add('finished');
+                    document.body.classList.add('intro-done');
+                    document.body.classList.remove('cinematic');
+                    this.vis.targetCamPos.copy(this.vis.gameplayPos);
+                    AudioSys.sfx.intro();
+                    setTimeout(() => {
+                        document.getElementById('menu-panel').classList.remove('hidden');
+                        // Ensure settings UI is synced after DOM is fully ready
+                        this.updateSettingsUI();
+                    }, 800);
+                }, 2500);
+            }
+
+            initAuth() {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    auth.signInWithCustomToken(__initial_auth_token).catch(console.error);
+                } else {
+                    auth.signInAnonymously().catch(console.error);
+                }
+                
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        this.myId = user.uid;
+                    }
+                });
+            }
+
+            // --- NAVIGATION ---
+            toMenu() {
+                this.resetUI();
+                this.scores = { X: 0, O: 0 };
+                this.moveHistory = [];
+                this.currentStreak = 0;
+                this.roundNumber = 1; // Reset round number for new games
+                document.getElementById('menu-panel').classList.remove('hidden');
+                document.getElementById('about-fab').classList.remove('hidden');
+                document.getElementById('about-panel').classList.add('hidden');
+                document.getElementById('theme-fab').classList.remove('hidden'); 
+                document.body.classList.add('menu-active');
+                this.vis.clear();
+                if (this.winLine) {
+                    this.vis.scene.remove(this.winLine);
+                    this.winLine = null;
+                }
+                if(this.unsub) this.unsub();
+                if (this.hostingLoop) {
+                    clearInterval(this.hostingLoop);
+                    this.hostingLoop = null;
+                }
+                if(this.mode === 'online' && this.gameId) {
+                    db.collection('artifacts').doc(appId).collection('public_games_v2').doc(this.gameId).update({status: 'finished'});
+                }
+                this.active = false;
+                this.gameId = null;
+                document.getElementById('scoreboard').classList.remove('visible');
+                document.getElementById('undo-btn').style.display = 'none';
+                this.updateStreakDisplay();
+            }
+
+            showAbout() {
+                document.getElementById('menu-panel').classList.add('hidden');
+                document.getElementById('about-fab').classList.add('hidden');
+                document.getElementById('theme-fab').classList.add('hidden');
+                document.getElementById('about-panel').classList.remove('hidden');
+            }
+
+            closeAbout() {
+                document.getElementById('about-panel').classList.add('hidden');
+                document.getElementById('menu-panel').classList.remove('hidden');
+                document.getElementById('about-fab').classList.remove('hidden');
+                document.getElementById('theme-fab').classList.remove('hidden');
+            }
+
+            resetUI() {
+                ['menu-panel', 'search-panel', 'about-panel', 'difficulty-panel', 'stats-panel'].forEach(id => document.getElementById(id).classList.add('hidden'));
+                document.getElementById('game-ui').classList.remove('visible');
+                document.getElementById('notification').classList.remove('active');
+                this.stopTimer();
+            }
+
+            setTheme(t) {
+                document.body.classList.toggle('dark-mode', t === 'dark');
+                document.querySelectorAll('.t-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`.t-${t}`).classList.add('active');
+                this.vis.setTheme(t);
+                AudioSys.sfx.hover();
+            }
+
+            // --- MODES ---
+            playLocal() { this.mode = 'local'; this.start(); }
+            
+            playAI() {
+                // Show difficulty selection menu
+                AudioSys.init();
+                document.getElementById('menu-panel').classList.add('hidden');
+                document.getElementById('about-fab').classList.add('hidden');
+                document.getElementById('theme-fab').classList.add('hidden');
+                document.getElementById('difficulty-panel').classList.remove('hidden');
+            }
+            
+            closeDifficulty() {
+                document.getElementById('difficulty-panel').classList.add('hidden');
+                document.getElementById('menu-panel').classList.remove('hidden');
+                document.getElementById('about-fab').classList.remove('hidden');
+                document.getElementById('theme-fab').classList.remove('hidden');
+            }
+            
+            startAI(difficulty) {
+                this.mode = 'ai';
+                this.aiDifficulty = difficulty; // 'easy', 'medium', 'hard'
+                this.start();
+            }
+            
+            async playOnline() {
+                AudioSys.init();
+                if(!auth.currentUser) return;
+                this.resetUI();
+                document.getElementById('about-fab').classList.add('hidden');
+                document.getElementById('theme-fab').classList.add('hidden'); // Hide themes during game
+                document.getElementById('search-panel').classList.remove('hidden');
+                this.mode = 'online';
+
+                const gamesRef = db.collection('artifacts').doc(appId).collection('public_games_v2');
+
+                try {
+                    const myGames = await gamesRef.where('playerX', '==', this.myId).get();
+                    const batch = db.batch();
+                    myGames.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+
+                    await this.attemptMatchmaking(gamesRef);
+                } catch(e) { 
+                    console.error("Match flow error", e); 
+                    this.toMenu(); 
+                }
+            }
+
+            async attemptMatchmaking(gamesRef) {
+                const snap = await gamesRef.where('status', '==', 'waiting').limit(10).get();
+                let targetDoc = null;
+                
+                snap.forEach(doc => {
+                    if(doc.data().playerX !== this.myId) {
+                        const created = doc.data().timestamp?.toMillis() || Date.now();
+                        if (Date.now() - created < 300000) {
+                            targetDoc = doc;
+                        }
+                    }
+                });
+
+                if (targetDoc) {
+                    try {
+                        await db.runTransaction(async (t) => {
+                            const d = await t.get(targetDoc.ref);
+                            if(!d.exists || d.data().status !== 'waiting') throw "taken";
+                            t.update(targetDoc.ref, {
+                                status: 'active',
+                                playerO: this.myId,
+                                board: Array(9).fill(null),
+                                turn: 'X'
+                            });
+                        });
+                        this.gameId = targetDoc.id;
+                        this.role = 'O';
+                        this.connect();
+                    } catch (e) {
+                        setTimeout(() => this.attemptMatchmaking(gamesRef), 500);
+                    }
+                } else {
+                    const doc = await gamesRef.add({
+                        status: 'waiting',
+                        playerX: this.myId,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        createdAt: Date.now(),
+                        scores: {X: 0, O: 0},
+                        roundNumber: 1
+                    });
+                    this.gameId = doc.id;
+                    this.role = 'X';
+                    this.createdTime = Date.now();
+                    this.roundNumber = 1;
+                    
+                    this.connect();
+                    this.hostingLoop = setInterval(() => this.checkForSeniorHost(gamesRef), 2000);
+                }
+            }
+
+            async checkForSeniorHost(gamesRef) {
+                if (this.active || !this.gameId) {
+                    clearInterval(this.hostingLoop);
+                    return;
+                }
+                const snap = await gamesRef.where('status', '==', 'waiting').limit(5).get();
+                let seniorGame = null;
+                snap.forEach(doc => {
+                    if (doc.id !== this.gameId && doc.data().playerX !== this.myId) {
+                        const otherTime = doc.data().createdAt || Date.now();
+                        if (otherTime < this.createdTime) seniorGame = doc;
+                    }
+                });
+
+                if (seniorGame) {
+                    clearInterval(this.hostingLoop);
+                    await gamesRef.doc(this.gameId).delete();
+                    this.gameId = null;
+                    if(this.unsub) this.unsub();
+                    this.attemptMatchmaking(gamesRef);
+                }
+            }
+
+            connect() {
+                const gamesRef = db.collection('artifacts').doc(appId).collection('public_games_v2');
+                this.unsub = gamesRef.doc(this.gameId)
+                    .onSnapshot(doc => {
+                        const data = doc.data();
+                        if(!data) return;
+
+                        if(data.status === 'active' && document.getElementById('search-panel').classList.contains('hidden') === false) {
+                            this.start();
+                        }
+
+                        if(data.scores) {
+                            this.scores = data.scores;
+                            this.updateScoreUI();
+                        }
+                        
+                        // Sync round number for alternating starts
+                        if(data.roundNumber) {
+                            this.roundNumber = data.roundNumber;
+                        }
+
+                        if(data.board) {
+                            const remoteCount = data.board.filter(x => x).length;
+                            const localCount = this.board.filter(x => x).length;
+                            
+                            if(remoteCount < localCount) {
+                                this.vis.clear();
+                                this.board.fill(null);
+                                this.active = true;
+                                document.getElementById('notification').classList.remove('active');
+                            }
+
+                            for(let i=0; i<9; i++) {
+                                if(data.board[i] && !this.board[i]) this.place(i, data.board[i]);
+                            }
+                            this.checkWin();
+                        }
+
+                        if(data.turn) {
+                            this.turn = data.turn;
+                            this.updateHUD();
+                        }
+
+                        if(data.emote && data.emote.id !== this.lastEmote) {
+                            this.lastEmote = data.emote.id;
+                            if(data.emote.sender !== this.myId) {
+                                this.vis.spawnEmote(data.emote.val);
+                                AudioSys.sfx.msg();
+                            }
+                        }
+
+                        if(data.status === 'finished' && this.active) {
+                            this.showNotif("Disconnected", "Opponent left");
+                            setTimeout(() => this.toMenu(), 2000);
+                        }
+                    });
+            }
+
+            cancelSearch() {
+                if (this.hostingLoop) {
+                    clearInterval(this.hostingLoop);
+                    this.hostingLoop = null;
+                }
+                const gamesRef = db.collection('artifacts').doc(appId).collection('public_games_v2');
+                if(this.gameId) gamesRef.doc(this.gameId).delete();
+                if(this.unsub) this.unsub();
+                this.toMenu();
+            }
+
+            // --- GAMEPLAY ---
+            start() {
+                this.resetUI();
+                document.body.classList.remove('menu-active');
+                document.getElementById('about-fab').classList.add('hidden');
+                document.getElementById('theme-fab').classList.add('hidden');
+                document.getElementById('game-ui').classList.add('visible');
+                document.getElementById('scoreboard').classList.add('visible');
+                
+                const gameUI = document.getElementById('game-ui');
+                if (this.mode !== 'online') {
+                    gameUI.classList.add('offline');
+                } else {
+                    gameUI.classList.remove('offline');
+                }
+
+                // Show undo button for AI mode
+                const undoBtn = document.getElementById('undo-btn');
+                if (this.mode === 'ai') {
+                    undoBtn.style.display = 'flex';
+                    undoBtn.disabled = true;
+                } else {
+                    undoBtn.style.display = 'none';
+                }
+
+                this.vis.clear();
+                if (this.winLine) {
+                    this.vis.scene.remove(this.winLine);
+                    this.winLine = null;
+                }
+                this.board.fill(null);
+                this.moveHistory = [];
+                this.active = true;
+                this.turn = 'X';
+                
+                // Track game start time and reset tracking vars
+                this.gameStartTime = Date.now();
+                this.lastGamePerfect = true; // Assume perfect until opponent gets 2 in a row
+                this.opponentMaxInRow = 0;
+                this.wasDown02 = false;
+                this.firstMoveCell = null;
+                
+                this.updateHUD();
+                this.updateScoreUI();
+                this.updateSeriesDisplay();
+                this.updateStreakDisplay();
+                this.applyBoardTheme(this.boardTheme);
+                
+                this.vis.camera.position.y = 25;
+                if (this.hostingLoop) {
+                    clearInterval(this.hostingLoop);
+                    this.hostingLoop = null;
+                }
+
+                // Start timer if enabled
+                if (this.turnTimer > 0 && this.mode !== 'online') {
+                    this.startTimer();
+                }
+            }
+
+            updateScoreUI() {
+                document.getElementById('val-x').innerText = this.scores.X;
+                document.getElementById('val-o').innerText = this.scores.O;
+                
+                let xLabel = "Player X";
+                let oLabel = "Player O";
+                
+                if (this.mode === 'online') {
+                    if (this.role === 'X') {
+                        xLabel = "You (X)";
+                        oLabel = "Opponent (O)";
+                    } else {
+                        xLabel = "Opponent (X)";
+                        oLabel = "You (O)";
+                    }
+                } else if (this.mode === 'ai') {
+                    xLabel = "You (X)";
+                    const diffLabel = this.aiDifficulty ? this.aiDifficulty.charAt(0).toUpperCase() + this.aiDifficulty.slice(1) : 'AI';
+                    oLabel = `${diffLabel} (O)`;
+                }
+                
+                document.getElementById('lbl-x').innerText = xLabel;
+                document.getElementById('lbl-o').innerText = oLabel;
+                
+                document.getElementById('row-x').classList.remove('highlight');
+                document.getElementById('row-o').classList.remove('highlight');
+                
+                if (this.scores.X > this.scores.O) document.getElementById('row-x').classList.add('highlight');
+                if (this.scores.O > this.scores.X) document.getElementById('row-o').classList.add('highlight');
+            }
+
+            updateHUD() {
+                const txt = document.getElementById('turn-txt');
+                if(this.mode === 'online') {
+                    txt.innerText = this.turn === this.role ? "Your Turn" : "Opponent Thinking...";
+                    txt.style.opacity = this.turn === this.role ? 1 : 0.6;
+                } else {
+                    txt.innerText = `Player ${this.turn}'s Turn`;
+                }
+            }
+
+            onClick(e) {
+                // Always try to init audio on any interaction
+                AudioSys.init();
+
+                // Block interaction if clicking UI (buttons, links, or panels)
+                if (e.target.closest('.center-panel') || e.target.closest('button') || e.target.closest('a')) return;
+
+                if(!this.active) return;
+
+                if(this.mode === 'online' && this.turn !== this.role) return;
+
+                this.mouse.x = (e.clientX/window.innerWidth)*2-1;
+                this.mouse.y = -(e.clientY/window.innerHeight)*2+1;
+                this.vis.raycaster.setFromCamera(this.mouse, this.vis.camera);
+                
+                const intersects = this.vis.raycaster.intersectObjects(this.vis.hitboxes);
+                if(intersects.length > 0) {
+                    this.move(intersects[0].object.userData.id);
+                }
+            }
+
+            move(id) {
+                if(this.board[id]) return;
+
+                if(this.mode === 'online') {
+                    const next = this.turn === 'X' ? 'O' : 'X';
+                    const newBoard = [...this.board];
+                    newBoard[id] = this.role;
+                    db.collection('artifacts').doc(appId).collection('public_games_v2').doc(this.gameId).update({
+                        board: newBoard, turn: next
+                    });
+                } else {
+                    this.place(id, this.turn);
+                    
+                    // Track move history
+                    this.moveHistory.push({ idx: id, player: this.turn });
+                    
+                    // Update undo button
+                    if (this.mode === 'ai') {
+                        document.getElementById('undo-btn').disabled = this.moveHistory.length < 2;
+                    }
+
+                    if(!this.checkWin()) {
+                        this.turn = this.turn === 'X' ? 'O' : 'X';
+                        this.updateHUD();
+                        
+                        // Restart timer
+                        if (this.turnTimer > 0) {
+                            this.startTimer();
+                        }
+
+                        if(this.mode === 'ai' && this.turn === 'O') setTimeout(()=>this.aiMove(), 500);
+                    }
+                }
+            }
+
+            place(id, type) {
+                this.board[id] = type;
+                this.vis.spawnPiece(type, id, this.pieceColors[type]);
+                AudioSys.sfx.place();
+                this.haptic('medium');
+                
+                // Track first move for Favorite Opening stat
+                if (this.firstMoveCell === null && type === 'X') {
+                    this.firstMoveCell = id;
+                }
+                
+                // Track opponent's max in a row for Perfect Game achievement
+                const opponent = this.mode === 'ai' ? 'O' : (this.role === 'X' ? 'O' : 'X');
+                if (type === opponent) {
+                    const maxInRow = this.getMaxInRow(opponent);
+                    if (maxInRow > (this.opponentMaxInRow || 0)) {
+                        this.opponentMaxInRow = maxInRow;
+                    }
+                }
+                
+                // Track cell usage for heatmap
+                this.trackCellUsage(id, type);
+            }
+            
+            getMaxInRow(player) {
+                const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                let maxInRow = 0;
+                for (let c of wins) {
+                    let count = 0;
+                    for (let i of c) {
+                        if (this.board[i] === player) count++;
+                    }
+                    if (count > maxInRow) maxInRow = count;
+                }
+                return maxInRow;
+            }
+            
+            trackCellUsage(cell, player) {
+                if (!this.advancedStats.cellUsage) {
+                    this.advancedStats.cellUsage = Array(9).fill(0);
+                }
+                if (!this.advancedStats.winningCells) {
+                    this.advancedStats.winningCells = Array(9).fill(0);
+                }
+                this.advancedStats.cellUsage[cell]++;
+            }
+
+            aiMove() {
+                if (!this.active) return; // Guard: Don't move if game ended
+                
+                const empty = this.board.map((v,i) => v === null ? i : null).filter(v => v !== null);
+                if (empty.length === 0) return;
+                
+                let move;
+                
+                if (this.aiDifficulty === 'easy') {
+                    // Easy: Pure random moves
+                    move = empty[Math.floor(Math.random() * empty.length)];
+                } else if (this.aiDifficulty === 'medium') {
+                    // Medium: 50% chance smart move, 50% random
+                    if (Math.random() < 0.5) {
+                        move = this.getBestMove();
+                    } else {
+                        move = empty[Math.floor(Math.random() * empty.length)];
+                    }
+                } else {
+                    // Hard: Always optimal (minimax)
+                    move = this.getBestMove();
+                }
+                
+                // Guard against null move
+                if (move !== null && move !== undefined) {
+                    this.board[move] = 'O';
+                    this.vis.spawnPiece('O', move, this.pieceColors['O']);
+                    AudioSys.sfx.place();
+                    
+                    // Track AI move
+                    this.moveHistory.push({ idx: move, player: 'O' });
+                    document.getElementById('undo-btn').disabled = this.moveHistory.length < 2;
+
+                    if (!this.checkWin()) {
+                        this.turn = 'X';
+                        this.updateHUD();
+                        
+                        // Restart timer for player
+                        if (this.turnTimer > 0) {
+                            this.startTimer();
+                        }
+                    }
+                }
+            }
+            
+            getBestMove() {
+                // Minimax algorithm for unbeatable AI
+                let bestScore = -Infinity;
+                let bestMove = null;
+                
+                for (let i = 0; i < 9; i++) {
+                    if (this.board[i] === null) {
+                        this.board[i] = 'O';
+                        let score = this.minimax(this.board, 0, false);
+                        this.board[i] = null;
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMove = i;
+                        }
+                    }
+                }
+                return bestMove;
+            }
+            
+            minimax(board, depth, isMaximizing) {
+                const winner = this.checkWinnerForMinimax(board);
+                if (winner === 'O') return 10 - depth;
+                if (winner === 'X') return depth - 10;
+                if (!board.includes(null)) return 0;
+                
+                if (isMaximizing) {
+                    let bestScore = -Infinity;
+                    for (let i = 0; i < 9; i++) {
+                        if (board[i] === null) {
+                            board[i] = 'O';
+                            let score = this.minimax(board, depth + 1, false);
+                            board[i] = null;
+                            bestScore = Math.max(score, bestScore);
+                        }
+                    }
+                    return bestScore;
+                } else {
+                    let bestScore = Infinity;
+                    for (let i = 0; i < 9; i++) {
+                        if (board[i] === null) {
+                            board[i] = 'X';
+                            let score = this.minimax(board, depth + 1, true);
+                            board[i] = null;
+                            bestScore = Math.min(score, bestScore);
+                        }
+                    }
+                    return bestScore;
+                }
+            }
+            
+            checkWinnerForMinimax(board) {
+                const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                for (let c of wins) {
+                    if (board[c[0]] && board[c[0]] === board[c[1]] && board[c[0]] === board[c[2]]) {
+                        return board[c[0]];
+                    }
+                }
+                return null;
+            }
+
+            checkWin() {
+                if (!this.active) return false;
+
+                const result = this.getWinner();
+                if(result) {
+                    this.showWinLine(result.combo);
+                    this.end(result.winner);
+                    return true;
+                } else if(!this.board.includes(null)) {
+                    this.end('draw');
+                    return true;
+                }
+                return false;
+            }
+
+            getWinner() {
+                const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                for(let c of wins) {
+                    if(this.board[c[0]] && this.board[c[0]]===this.board[c[1]] && this.board[c[0]]===this.board[c[2]]) {
+                        return { winner: this.board[c[0]], combo: c };
+                    }
+                }
+                return null;
+            }
+
+            end(w) {
+                this.active = false;
+                this.stopTimer();
+                let t, s;
+                
+                // Calculate game duration for Speed Demon achievement
+                this.lastGameDuration = (Date.now() - this.gameStartTime) / 1000;
+                
+                // Check if opponent had 2 in a row (for Perfect Game)
+                this.lastGamePerfect = this.opponentMaxInRow < 2;
+                
+                // Track comeback (if was down 0-2 and now winning)
+                if (this.seriesMode > 0) {
+                    const myScore = this.mode === 'ai' ? this.scores.X : (this.role === 'X' ? this.scores.X : this.scores.O);
+                    const oppScore = this.mode === 'ai' ? this.scores.O : (this.role === 'X' ? this.scores.O : this.scores.X);
+                    if (oppScore === 2 && myScore === 0) {
+                        this.wasDown02 = true;
+                    }
+                }
+                
+                // Only player X updates scores in online to prevent double-counting
+                const shouldUpdateScore = this.mode !== 'online' || this.role === 'X';
+
+                if (w !== 'draw' && shouldUpdateScore) {
+                    this.scores[w]++;
+                    if (this.mode === 'online') {
+                        db.collection('artifacts').doc(appId).collection('public_games_v2').doc(this.gameId).update({
+                            scores: this.scores
+                        });
+                    }
+                }
+                // Always update UI for all modes (online score comes via snapshot)
+                this.updateScoreUI();
+                this.updateSeriesDisplay(); // Update game count in series
+
+                // Determine result for stats
+                let gameResult = 'draw';
+                let isPlayerWin = false;
+
+                if(w === 'draw') {
+                    t = "🤝 Draw"; s = "Stalemate";
+                    gameResult = 'draw';
+                } else {
+                    if (this.mode === 'online') {
+                        isPlayerWin = w === this.role;
+                        t = isPlayerWin ? "🏆 Victory" : "💔 Defeat";
+                        s = isPlayerWin ? "Well Played" : "Try Again";
+                    } else if (this.mode === 'ai') {
+                        isPlayerWin = w === 'X';
+                        t = isPlayerWin ? "🏆 Victory" : "🤖 Defeat";
+                        s = isPlayerWin ? "You beat the AI!" : "AI Wins";
+                    } else {
+                        // Local mode - show which player won
+                        t = `🎉 Player ${w} Wins!`;
+                        s = w === 'X' ? "X takes the round" : "O takes the round";
+                        isPlayerWin = true; // Both players are local
+                    }
+                    
+                    gameResult = isPlayerWin ? 'win' : 'loss';
+
+                    if (isPlayerWin) {
+                        AudioSys.sfx.win();
+                        this.spawnConfetti();
+                        this.haptic('success');
+                    } else {
+                        this.haptic('error');
+                    }
+                }
+
+                // Record stats (not for local mode to avoid confusion)
+                if (this.mode !== 'local') {
+                    this.recordGame(gameResult, this.mode);
+                }
+
+                this.showNotif(t, s);
+
+                // Check for series win
+                const seriesWinner = this.checkSeriesWin();
+                if (seriesWinner) {
+                    setTimeout(() => {
+                        let isSeriesWin = false;
+                        let seriesMessage = '';
+                        let seriesSubtitle = '';
+                        
+                        if (seriesWinner === 'tie') {
+                            // Series ended in a tie
+                            seriesMessage = '🤝 Series Tied!';
+                            seriesSubtitle = `${this.scores.X} - ${this.scores.O} after ${this.seriesMode} games`;
+                            isSeriesWin = false;
+                        } else if (this.mode === 'local') {
+                            // Local mode - just announce the winner
+                            isSeriesWin = true; // Always celebrate in local mode
+                            seriesMessage = `🎉 Player ${seriesWinner} Wins the Series!`;
+                            seriesSubtitle = `${this.scores.X} - ${this.scores.O} in Best of ${this.seriesMode}`;
+                        } else if (this.mode === 'ai') {
+                            isSeriesWin = seriesWinner === 'X';
+                            seriesMessage = isSeriesWin ? '🏆 Series Victory!' : '🤖 AI Wins Series';
+                            seriesSubtitle = `${this.scores.X} - ${this.scores.O} in Best of ${this.seriesMode}`;
+                        } else if (this.mode === 'online') {
+                            isSeriesWin = seriesWinner === this.role;
+                            seriesMessage = isSeriesWin ? '🏆 Series Victory!' : '💔 Series Lost';
+                            seriesSubtitle = `${this.scores.X} - ${this.scores.O} in Best of ${this.seriesMode}`;
+                        }
+                        
+                        this.showNotif(seriesMessage, seriesSubtitle);
+                        if (isSeriesWin) this.spawnConfetti();
+                        
+                        setTimeout(() => this.toMenu(), 3000);
+                    }, 3500);
+                    return;
+                }
+                
+                setTimeout(() => {
+                    if (this.mode === 'online') {
+                        if (this.role === 'X') {
+                            // Increment round number and alternate starting player
+                            this.roundNumber++;
+                            const nextStarter = this.roundNumber % 2 === 1 ? 'X' : 'O';
+                            db.collection('artifacts').doc(appId).collection('public_games_v2').doc(this.gameId).update({
+                                board: Array(9).fill(null),
+                                turn: nextStarter,
+                                roundNumber: this.roundNumber
+                            });
+                        }
+                    } else {
+                        this.vis.clear();
+                        if (this.winLine) {
+                            this.vis.scene.remove(this.winLine);
+                            this.winLine = null;
+                        }
+                        this.board.fill(null);
+                        this.moveHistory = [];
+                        this.active = true;
+                        
+                        // Alternate starting player for local/AI modes too
+                        this.roundNumber++;
+                        this.turn = this.roundNumber % 2 === 1 ? 'X' : 'O';
+                        
+                        this.updateHUD();
+                        document.getElementById('notification').classList.remove('active');
+                        document.getElementById('undo-btn').disabled = true;
+                        
+                        // Restart timer
+                        if (this.turnTimer > 0) {
+                            this.startTimer();
+                        }
+                        
+                        // If AI mode and it's O's turn (AI), trigger AI move
+                        if (this.mode === 'ai' && this.turn === 'O') {
+                            setTimeout(() => this.aiMove(), 500);
+                        }
+                    }
+                }, 3500);
+            }
+
+            showNotif(t, s) {
+                const el = document.getElementById('notification');
+                el.querySelector('h2').innerText = t;
+                el.querySelector('p').innerText = s;
+                el.classList.add('active');
+            }
+
+            emote(e) {
+                this.vis.spawnEmote(e);
+                AudioSys.sfx.msg();
+                if(this.mode === 'online') {
+                    db.collection('artifacts').doc(appId).collection('public_games_v2').doc(this.gameId).update({
+                        emote: { val: e, sender: this.myId, id: Date.now() }
+                    });
+                }
+            }
+
+            leaveGame() {
+                if(this.mode === 'online' && this.gameId) {
+                    db.collection('artifacts').doc(appId).collection('public_games_v2').doc(this.gameId).update({status:'finished'});
+                }
+                this.toMenu();
+            }
+        }
+
+        const app = new Game();
+
+    </script>
+</body>
+</html>
