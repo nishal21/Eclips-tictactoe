@@ -801,9 +801,118 @@
             .intro-sub { font-size: 0.6rem; letter-spacing: 2px; }
         }
 
+        /* UPDATE POPUP */
+        #update-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 10000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #update-overlay.visible {
+            display: flex;
+            opacity: 1;
+        }
+        #update-popup {
+            background: var(--surface);
+            border-radius: 24px;
+            padding: 40px 30px;
+            max-width: 340px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        #update-overlay.visible #update-popup {
+            transform: scale(1);
+        }
+        .update-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+        .update-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            color: var(--text-main);
+            margin: 0 0 10px 0;
+        }
+        .update-version {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+        }
+        .update-message {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        .update-btn {
+            display: block;
+            width: 100%;
+            padding: 14px 20px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .update-btn-primary {
+            background: linear-gradient(135deg, #00f3ff, #00c4cc);
+            color: #000;
+        }
+        .update-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 243, 255, 0.3);
+        }
+        .update-btn-secondary {
+            background: transparent;
+            color: var(--text-sub);
+            border: 1px solid var(--text-sub);
+        }
+        .update-btn-secondary:hover {
+            border-color: var(--text-main);
+            color: var(--text-main);
+        }
+        .update-required-note {
+            font-size: 0.75rem;
+            color: var(--danger-color);
+            margin-top: 15px;
+        }
+
     </style>
 </head>
 <body class="menu-active cinematic">
+
+    <!-- Update Popup -->
+    <div id="update-overlay">
+        <div id="update-popup">
+            <span class="update-icon">🚀</span>
+            <h2 class="update-title">Update Available</h2>
+            <div class="update-version">
+                <span id="update-current-version">1.0.0</span> → <span id="update-new-version" style="color: var(--primary-color);">2.0.0</span>
+            </div>
+            <p class="update-message" id="update-message">A new version with exciting features and improvements is available!</p>
+            <button class="update-btn update-btn-primary" onclick="UpdateChecker.openStore()">Update Now</button>
+            <button class="update-btn update-btn-secondary" id="update-later-btn" onclick="UpdateChecker.dismissUpdate()">Remind Me Later</button>
+            <p class="update-required-note" id="update-required-note" style="display: none;">⚠️ This update is required to continue playing</p>
+        </div>
+    </div>
 
     <!-- Local background audio: place your downloaded file here as bgm.mp3 -->
     <audio id="bgm-audio" src="bgm.mp3" loop preload="auto" style="display:none"></audio>
@@ -1291,6 +1400,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-remote-config.js"></script>
     
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1305,6 +1415,128 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+
+        // --- APP VERSION ---
+        const APP_VERSION = '1.0.0'; // UPDATE THIS WITH EACH RELEASE
+        const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.eclipse.tictactoe';
+
+        // --- UPDATE CHECKER (Firebase Remote Config) ---
+        const UpdateChecker = {
+            remoteConfig: null,
+            isRequired: false,
+            
+            async init() {
+                try {
+                    this.remoteConfig = firebase.remoteConfig();
+                    
+                    // Set minimum fetch interval (1 hour for production, 0 for testing)
+                    this.remoteConfig.settings = {
+                        minimumFetchIntervalMillis: 3600000 // 1 hour
+                    };
+                    
+                    // Set defaults in case fetch fails
+                    this.remoteConfig.defaultConfig = {
+                        'latest_version': APP_VERSION,
+                        'min_version': '1.0.0',
+                        'update_message': 'A new version with exciting features is available!',
+                        'force_update': false
+                    };
+                    
+                    // Fetch and activate remote config
+                    await this.remoteConfig.fetchAndActivate();
+                    
+                    // Check for updates
+                    this.checkForUpdate();
+                } catch (error) {
+                    console.log('Remote Config error:', error);
+                    // Silently fail - app continues normally
+                }
+            },
+            
+            checkForUpdate() {
+                const latestVersion = this.remoteConfig.getString('latest_version') || APP_VERSION;
+                const minVersion = this.remoteConfig.getString('min_version') || '1.0.0';
+                const updateMessage = this.remoteConfig.getString('update_message');
+                const forceUpdate = this.remoteConfig.getBoolean('force_update');
+                
+                // Compare versions
+                const needsUpdate = this.compareVersions(APP_VERSION, latestVersion) < 0;
+                const isRequired = forceUpdate || this.compareVersions(APP_VERSION, minVersion) < 0;
+                
+                if (needsUpdate) {
+                    // Check if user dismissed this version recently (for optional updates)
+                    const dismissedVersion = localStorage.getItem('dismissedUpdateVersion');
+                    const dismissedTime = localStorage.getItem('dismissedUpdateTime');
+                    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                    
+                    if (!isRequired && dismissedVersion === latestVersion && dismissedTime && parseInt(dismissedTime) > oneDayAgo) {
+                        // User dismissed this optional update less than 24 hours ago
+                        return;
+                    }
+                    
+                    this.showUpdatePopup(latestVersion, updateMessage, isRequired);
+                }
+            },
+            
+            compareVersions(v1, v2) {
+                const parts1 = v1.split('.').map(Number);
+                const parts2 = v2.split('.').map(Number);
+                
+                for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+                    const p1 = parts1[i] || 0;
+                    const p2 = parts2[i] || 0;
+                    if (p1 < p2) return -1;
+                    if (p1 > p2) return 1;
+                }
+                return 0;
+            },
+            
+            showUpdatePopup(version, message, required) {
+                this.isRequired = required;
+                
+                document.getElementById('update-current-version').textContent = APP_VERSION;
+                document.getElementById('update-new-version').textContent = version;
+                document.getElementById('update-message').textContent = message || 'A new version with exciting features and improvements is available!';
+                
+                const laterBtn = document.getElementById('update-later-btn');
+                const requiredNote = document.getElementById('update-required-note');
+                
+                if (required) {
+                    laterBtn.style.display = 'none';
+                    requiredNote.style.display = 'block';
+                } else {
+                    laterBtn.style.display = 'block';
+                    requiredNote.style.display = 'none';
+                }
+                
+                const overlay = document.getElementById('update-overlay');
+                overlay.style.display = 'flex';
+                setTimeout(() => overlay.classList.add('visible'), 10);
+            },
+            
+            dismissUpdate() {
+                if (this.isRequired) return; // Can't dismiss required updates
+                
+                const latestVersion = this.remoteConfig.getString('latest_version');
+                localStorage.setItem('dismissedUpdateVersion', latestVersion);
+                localStorage.setItem('dismissedUpdateTime', Date.now().toString());
+                
+                const overlay = document.getElementById('update-overlay');
+                overlay.classList.remove('visible');
+                setTimeout(() => overlay.style.display = 'none', 300);
+            },
+            
+            openStore() {
+                // Open Play Store
+                window.open(PLAY_STORE_URL, '_system');
+                
+                // For Capacitor, you might want to use:
+                // window.location.href = PLAY_STORE_URL;
+            }
+        };
+
+        // Initialize update checker after a short delay (let intro play)
+        setTimeout(() => UpdateChecker.init(), 3000);
 
         // --- BGM ENGINE (Local audio only) ---
         const bgm = {
@@ -1964,7 +2196,11 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
                 this.saveAdvancedStats();
 
                 // Check achievements
-                this.checkAchievements(result, mode);
+                try {
+                    this.checkAchievements(result, mode);
+                } catch (e) {
+                    console.error('Error checking achievements:', e);
+                }
                 this.saveStats();
                 this.updateStreakDisplay();
             }
@@ -2499,16 +2735,18 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
 
             // --- HAPTIC FEEDBACK ---
             haptic(type = 'light') {
-                if (!navigator.vibrate) return;
-                
-                switch(type) {
-                    case 'light': navigator.vibrate(10); break;
-                    case 'medium': navigator.vibrate(25); break;
-                    case 'heavy': navigator.vibrate(50); break;
-                    case 'success': navigator.vibrate([50, 50, 50]); break;
-                    case 'warning': navigator.vibrate([100, 50, 100]); break;
-                    case 'error': navigator.vibrate([200, 100, 200]); break;
-                }
+                try {
+                    if (!navigator.vibrate) return;
+                    
+                    switch(type) {
+                        case 'light': navigator.vibrate(10); break;
+                        case 'medium': navigator.vibrate(25); break;
+                        case 'heavy': navigator.vibrate(50); break;
+                        case 'success': navigator.vibrate([50, 50, 50]); break;
+                        case 'warning': navigator.vibrate([100, 50, 100]); break;
+                        case 'error': navigator.vibrate([200, 100, 200]); break;
+                    }
+                } catch(e) {}
             }
 
             // --- WIN LINE ANIMATION ---
@@ -3106,7 +3344,6 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
             }
 
             aiMove() {
-                console.log('aiMove called, active:', this.active, 'mode:', this.mode);
                 if (!this.active) return; // Guard: Don't move if game ended
                 
                 const empty = this.board.map((v,i) => v === null ? i : null).filter(v => v !== null);
@@ -3212,18 +3449,14 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
             }
 
             checkWin() {
-                console.log('checkWin called, active:', this.active, 'board:', this.board.join(','));
                 if (!this.active) return false;
 
                 const result = this.getWinner();
-                console.log('checkWin result:', result);
                 if(result) {
-                    console.log('Winner found:', result.winner, 'showing win line and calling end');
                     this.showWinLine(result.combo);
                     this.end(result.winner);
                     return true;
                 } else if(!this.board.includes(null)) {
-                    console.log('Draw detected');
                     this.end('draw');
                     return true;
                 }
@@ -3241,7 +3474,6 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
             }
 
             end(w) {
-                console.log('end() called with winner:', w, 'mode:', this.mode);
                 this.active = false;
                 this.stopTimer();
                 let t, s;
@@ -3302,23 +3534,26 @@ const firebaseConfig = { apiKey: "AIzaSyBjtCaBoG8d3Kp2-fhPWw2Z13iCWAYeEPQ", auth
                     gameResult = isPlayerWin ? 'win' : 'loss';
 
                     if (isPlayerWin) {
-                        AudioSys.sfx.win();
+                        try { AudioSys.sfx.win(); } catch(e) {}
                         this.spawnConfetti();
                         this.haptic('success');
                     } else {
                         // Play lose sound for defeats
-                        AudioSys.sfx.lose();
+                        try { AudioSys.sfx.lose(); } catch(e) {}
                         this.haptic('error');
                     }
                 }
 
                 // Record stats (not for local mode to avoid confusion)
                 if (this.mode !== 'local') {
-                    this.recordGame(gameResult, this.mode);
+                    try {
+                        this.recordGame(gameResult, this.mode);
+                    } catch (e) {
+                        console.error('Error recording game:', e);
+                    }
                 }
 
                 this.showNotif(t, s);
-                console.log('Notification shown:', t, s); // Debug log
 
                 // Check for series win
                 const seriesWinner = this.checkSeriesWin();
